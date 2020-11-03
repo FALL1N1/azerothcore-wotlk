@@ -9,6 +9,7 @@
 
 enum Spells
 {
+    // Horde
     SPELL_WHIRLWIND                               = 15589,
     SPELL_WHIRLWIND2                              = 13736,
     SPELL_KNOCKDOWN                               = 19128,
@@ -16,15 +17,27 @@ enum Spells
     SPELL_SWEEPING_STRIKES                        = 18765, // not sure
     SPELL_CLEAVE                                  = 20677, // not sure
     SPELL_WINDFURY                                = 35886, // not sure
-    SPELL_STORMPIKE                               = 51876  // not sure
+    SPELL_STORMPIKE                               = 51876,  // not sure
+
+    // Alliance
+    SPELL_AVATAR                                  = 19135,
+    SPELL_THUNDERCLAP                             = 15588,
+    SPELL_STORMBOLT                               = 20685 // not sure
 };
 
 enum Yells
 {
-    YELL_AGGRO                                    = 0,
-    YELL_EVADE                                    = 1,
-    YELL_RESPAWN                                  = 2,
-    YELL_RANDOM                                   = 3
+    // Horde
+    H_YELL_AGGRO                                    = 0,
+    H_YELL_EVADE                                    = 1,
+    H_YELL_RESPAWN                                  = 2,
+    H_YELL_RANDOM                                   = 3,
+
+    // Alliance
+    A_YELL_AGGRO                                    = 0,
+    A_YELL_EVADE                                    = 1, 
+    A_YELL_RANDOM                                   = 2,
+    A_YELL_SPELL                                    = 3,
 };
 
 class boss_drekthar : public CreatureScript
@@ -55,13 +68,13 @@ public:
 
         void EnterCombat(Unit* /*who*/)
         {
-            Talk(YELL_AGGRO);
+            Talk(H_YELL_AGGRO);
         }
 
         void JustRespawned()
         {
             Reset();
-            Talk(YELL_RESPAWN);
+            Talk(H_YELL_RESPAWN);
         }
 
         void UpdateAI(uint32 diff)
@@ -99,7 +112,7 @@ public:
 
             if (YellTimer <= diff)
             {
-                Talk(YELL_RANDOM);
+                Talk(H_YELL_RANDOM);
                 YellTimer = urand(20 * IN_MILLISECONDS, 30 * IN_MILLISECONDS); //20 to 30 seconds
             }
             else YellTimer -= diff;
@@ -110,7 +123,7 @@ public:
                 if (me->GetDistance2d(me->GetHomePosition().GetPositionX(), me->GetHomePosition().GetPositionY()) > 50)
                 {
                     EnterEvadeMode();
-                    Talk(YELL_EVADE);
+                    Talk(H_YELL_EVADE);
                 }
                 ResetTimer = 5 * IN_MILLISECONDS;
             }
@@ -126,7 +139,92 @@ public:
     }
 };
 
-void AddSC_boss_drekthar()
+class boss_vanndar : public CreatureScript
 {
-    new boss_drekthar;
+public:
+    boss_vanndar() : CreatureScript("boss_vanndar") { }
+
+    struct boss_vanndarAI : public ScriptedAI
+    {
+        boss_vanndarAI(Creature* creature) : ScriptedAI(creature) { }
+
+        uint32 AvatarTimer;
+        uint32 ThunderclapTimer;
+        uint32 StormboltTimer;
+        uint32 ResetTimer;
+        uint32 YellTimer;
+
+        void Reset()
+        {
+            AvatarTimer        = 3 * IN_MILLISECONDS;
+            ThunderclapTimer   = 4 * IN_MILLISECONDS;
+            StormboltTimer     = 6 * IN_MILLISECONDS;
+            ResetTimer         = 5 * IN_MILLISECONDS;
+            YellTimer = urand(20 * IN_MILLISECONDS, 30 * IN_MILLISECONDS);
+        }
+
+        void EnterCombat(Unit* /*who*/)
+        {
+            Talk(A_YELL_AGGRO);
+        }
+
+        void UpdateAI(uint32 diff)
+        {
+            if (!UpdateVictim())
+                return;
+
+            if (AvatarTimer <= diff)
+            {
+                DoCastVictim(SPELL_AVATAR);
+                AvatarTimer =  urand(15 * IN_MILLISECONDS, 20 * IN_MILLISECONDS);
+            }
+            else AvatarTimer -= diff;
+
+            if (ThunderclapTimer <= diff)
+            {
+                DoCastVictim(SPELL_THUNDERCLAP);
+                ThunderclapTimer = urand(5 * IN_MILLISECONDS, 15 * IN_MILLISECONDS);
+            }
+            else ThunderclapTimer -= diff;
+
+            if (StormboltTimer <= diff)
+            {
+                DoCastVictim(SPELL_STORMBOLT);
+                StormboltTimer = urand(10 * IN_MILLISECONDS, 25 * IN_MILLISECONDS);
+            }
+            else StormboltTimer -= diff;
+
+            if (YellTimer <= diff)
+            {
+                Talk(A_YELL_RANDOM);
+                YellTimer = urand(20 * IN_MILLISECONDS, 30 * IN_MILLISECONDS); //20 to 30 seconds
+            }
+            else YellTimer -= diff;
+
+            // check if creature is not outside of building
+            if (ResetTimer <= diff)
+            {
+                if (me->GetDistance2d(me->GetHomePosition().GetPositionX(), me->GetHomePosition().GetPositionY()) > 50)
+                {
+                    EnterEvadeMode();
+                    Talk(A_YELL_EVADE);
+                }
+                ResetTimer = 5 * IN_MILLISECONDS;
+            }
+            else ResetTimer -= diff;
+
+            DoMeleeAttackIfReady();
+        }
+    };
+
+    CreatureAI* GetAI(Creature* creature) const
+    {
+        return new boss_vanndarAI(creature);
+    }
+};
+
+void AddSC_av_final_bosses()
+{
+	new boss_drekthar;
+	new boss_vanndar;
 }

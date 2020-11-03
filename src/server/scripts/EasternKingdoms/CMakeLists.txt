@@ -12,10 +12,11 @@ set(scripts_STAT_SRCS
   ${scripts_STAT_SRCS}
   ${AC_SCRIPTS_DIR}/EasternKingdoms/zone_ghostlands.cpp
   ${AC_SCRIPTS_DIR}/EasternKingdoms/zone_eversong_woods.cpp
-  ${AC_SCRIPTS_DIR}/EasternKingdoms/AlteracValley/boss_galvangar.cpp
-  ${AC_SCRIPTS_DIR}/EasternKingdoms/AlteracValley/boss_balinda.cpp
-  ${AC_SCRIPTS_DIR}/EasternKingdoms/AlteracValley/boss_drekthar.cpp
-  ${AC_SCRIPTS_DIR}/EasternKingdoms/AlteracValley/boss_vanndar.cpp
+  ${AC_SCRIPTS_DIR}/EasternKingdoms/AlteracValley/av_calvary.cpp 
+  ${AC_SCRIPTS_DIR}/EasternKingdoms/AlteracValley/av_ground_air_troops.cpp 
+  ${AC_SCRIPTS_DIR}/EasternKingdoms/AlteracValley/av_summonable_bosses.cpp 
+  ${AC_SCRIPTS_DIR}/EasternKingdoms/AlteracValley/av_bunker_bosses.cpp 
+  ${AC_SCRIPTS_DIR}/EasternKingdoms/AlteracValley/av_final_bosses.cpp 
   ${AC_SCRIPTS_DIR}/EasternKingdoms/AlteracValley/alterac_valley.cpp
   ${AC_SCRIPTS_DIR}/EasternKingdoms/BlackrockMountain/BlackrockDepths/boss_high_interrogator_gerstahn.cpp
   ${AC_SCRIPTS_DIR}/EasternKingdoms/BlackrockMountain/BlackrockDepths/boss_gorosh_the_dervish.cpp
