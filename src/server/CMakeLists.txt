@@ -18,6 +18,8 @@ endif()
 
 add_subdirectory(shared)
 add_subdirectory(game)
+add_subdirectory(logon)
 add_subdirectory(authserver)
 add_subdirectory(scripts)
+add_subdirectory(logonserver)
 add_subdirectory(worldserver)
