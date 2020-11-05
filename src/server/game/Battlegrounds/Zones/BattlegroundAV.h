@@ -1600,6 +1600,13 @@ public:
 
     TeamId GetPrematureWinner() override;
 
+    uint32 horde_available_blood = 0;
+    uint32 GetHordeBlood() { return horde_available_blood; }
+    uint32 AddOrRemoveHordeBlood(uint32 val) { if (val == 0) val = 0;  horde_available_blood += val; }
+
+    uint32 alliance_available_crystals = 0;
+    uint32 GetAllianceCrystals() { return alliance_available_crystals; }
+    uint32 AddOrRemoveAllianceCrystals(uint32 val) {  if (val == 0) val = 0;  alliance_available_crystals += val; return alliance_available_crystals; }
 private:
     void PostUpdateImpl(uint32 diff) override;
 
