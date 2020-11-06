@@ -196,11 +196,6 @@ class WorldSession
 public:
     WorldSession(uint32 id, WorldSocket* sock, AccountTypes sec, uint8 expansion, time_t mute_time, LocaleConstant locale, uint32 recruiter, bool isARecruiter, bool skipQueue, uint32 TotalTime);
     ~WorldSession();
-        bool IsAuthed() const { return m_authenticated; }
-        void SetAuthed(bool yes) { m_authenticated = yes; }
-        void SetForceTele(bool force) { m_forceTele = force; }
-        bool IsForceTele() { return m_forceTele; }
-
 
     bool PlayerLoading() const { return m_playerLoading; }
     bool PlayerLogout() const { return m_playerLogout; }
@@ -451,17 +446,7 @@ public:                                                 // opcodes handlers
     void HandleWhoOpcode(WorldPacket& recvPacket);
     void HandleLogoutRequestOpcode(WorldPacket& recvPacket);
     void HandlePlayerLogoutOpcode(WorldPacket& recvPacket);
-    void HandleLogoutCancelOpcode(WorldPacket& recvPacket);
-
-    // GM Ticket opcodes
-    void HandleGMTicketCreateOpcode(WorldPacket& recvPacket);
-    void HandleGMTicketUpdateOpcode(WorldPacket& recvPacket);
-    void HandleGMTicketDeleteOpcode(WorldPacket& recvPacket);
-    void HandleGMTicketGetTicketOpcode(WorldPacket& recvPacket);
-    void HandleGMTicketSystemStatusOpcode(WorldPacket& recvPacket);
-    void HandleGMSurveySubmit(WorldPacket& recvPacket);
-    void HandleReportLag(WorldPacket& recvPacket);
-    void HandleGMResponseResolve(WorldPacket& recvPacket);
+    void HandleLogoutCancelOpcode(WorldPacket& recvPacket); 
 
     void HandleTogglePvP(WorldPacket& recvPacket);
 

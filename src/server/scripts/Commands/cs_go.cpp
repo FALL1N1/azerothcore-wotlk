@@ -14,7 +14,6 @@ EndScriptData */
 #include "ScriptMgr.h"
 #include "ObjectMgr.h"
 #include "MapManager.h"
-#include "TicketMgr.h"
 #include "Chat.h"
 #include "Language.h"
 #include "Player.h"
@@ -524,38 +523,6 @@ public:
         return true;
     }
 
-    static bool HandleGoTicketCommand(ChatHandler* handler, char const* args)
-    {
-        if (!*args)
-            return false;
-
-        char* id = strtok((char*)args, " ");
-        if (!id)
-            return false;
-
-        uint32 ticketId = atoi(id);
-        if (!ticketId)
-            return false;
-
-        GmTicket* ticket = sTicketMgr->GetTicket(ticketId);
-        if (!ticket)
-        {
-            handler->SendSysMessage(LANG_COMMAND_TICKETNOTEXIST);
-            return true;
-        }
-
-        Player* player = handler->GetSession()->GetPlayer();
-        if (player->IsInFlight())
-        {
-            player->GetMotionMaster()->MovementExpired();
-            player->CleanupAfterTaxiFlight();
-        }
-        else
-            player->SaveRecallPosition();
-
-        ticket->TeleportTo(player);
-        return true;
-    }
 };
 
 void AddSC_go_commandscript()

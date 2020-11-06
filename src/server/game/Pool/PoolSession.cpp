@@ -170,17 +170,14 @@ void PoolSession::Handle_LOGON_INIT_NODE(WorldPacket &recvPacket)
     uint32 MailGuid;
     uint32 GroupGuid;
     uint32 CorpseGuid;
-
-    recvPacket >> sObjectMgr->_hiRange;
+     
     recvPacket >> ItemGuid;
     if (ItemGuid >= 0xFFFFFFFE)
     {
         sLog->outError("Low Item GUID %u is higher then %u", ItemGuid, 0xFFFFFFFE);
         SendInitACK(NODE_INIT_ACK_ITEM_GUID_FAIL);
         return;
-    }
-    sObjectMgr->_hiItemGuid = ItemGuid;
-    sLog->outError("PoolSession::Handle_LOGON_INIT_NODE RANGE %u ItemGuid %u", sObjectMgr->_hiRange, sObjectMgr->_hiItemGuid);
+    }  
 
     recvPacket >> MailGuid;
     if (MailGuid >= 0xFFFFFFFE)
@@ -188,11 +185,9 @@ void PoolSession::Handle_LOGON_INIT_NODE(WorldPacket &recvPacket)
         sLog->outError("Low Mail GUID %u is higher then %u", ItemGuid, 0xFFFFFFFE);
         SendInitACK(NODE_INIT_ACK_MAIL_GUID_FAIL);
         return;
-    }
-    sObjectMgr->_mailId = MailGuid;
+    } 
 
-    recvPacket >> GroupGuid;
-    sGroupMgr->SetNextGroupDbStoreId(GroupGuid);
+    recvPacket >> GroupGuid; 
     //sGroupMgr->NextGroupId = GroupGuid;
 
     recvPacket >> CorpseGuid;
@@ -201,8 +196,7 @@ void PoolSession::Handle_LOGON_INIT_NODE(WorldPacket &recvPacket)
         sLog->outError("Low Corpse GUID %u is higher then %u", CorpseGuid, 0xFFFFFFFE);
         SendInitACK(NODE_INIT_ACK_CORPSE_GUID_FAIL);
         return;
-    }
-    sObjectMgr->_hiCorpseGuid = CorpseGuid;
+    } 
 
     for (int i = 0; i < 38; i++)
         recvPacket >> rate_float_value[i];
@@ -237,9 +231,7 @@ void PoolSession::Handle_LOGON_INIT_NODE(WorldPacket &recvPacket)
     sWorld->setRate(RATE_AUCTION_TIME, rate_float_value[27]);
     sWorld->setRate(RATE_AUCTION_DEPOSIT, rate_float_value[28]);
     sWorld->setRate(RATE_AUCTION_CUT, rate_float_value[29]);
-    sWorld->setRate(RATE_HONOR, rate_float_value[30]);
-    sWorld->setRate(RATE_MINING_AMOUNT, rate_float_value[31]);
-    sWorld->setRate(RATE_MINING_NEXT, rate_float_value[32]);
+    sWorld->setRate(RATE_HONOR, rate_float_value[30]); 
     sWorld->setRate(RATE_TALENT, rate_float_value[33]);
     sWorld->setRate(RATE_REPUTATION_GAIN, rate_float_value[34]);
     sWorld->setRate(RATE_REPUTATION_LOWLEVEL_KILL, rate_float_value[35]);
@@ -260,46 +252,9 @@ void PoolSession::Handle_LOGON_INIT_NODE(WorldPacket &recvPacket)
     sWorld->setIntConfig(CONFIG_SKILL_CHANCE_MINING_STEPS, rate_int_value[8]);
     sWorld->setIntConfig(CONFIG_SKILL_CHANCE_SKINNING_STEPS, rate_int_value[9]);
 
-    SendInitACK(NODE_INIT_ACK_OK);
-
-    if (sWorld->getIntConfig(CONFIG_CORE_TYPE) == NODE_TYPE_MASTER)
-        sObjectMgr->HandleLostMailItems();
+    SendInitACK(NODE_INIT_ACK_OK); 
 }
 
 void PoolSession::Handle_LOGON_SYNC_DATA(WorldPacket &recvPacket)
-{
-    uint32 cmd = recvPacket.read<uint32>();
-
-    switch (cmd)
-    {
-        case CL_DEF_GUID_SYNC:
-        {
-            uint32 subCommand = recvPacket.read<uint32>();
-
-            switch (subCommand)
-            {
-                case ENTITYID_ITEM:
-                    recvPacket >> sObjectMgr->_hiItemGuid;
-                    break;
-                case ENTITYID_MAIL:
-                    recvPacket >> sObjectMgr->_mailId;
-                    break;
-                case ENTITYID_GROUP:
-                    recvPacket >> sGroupMgr->NextGroupId;
-                    break;
-                case ENTITYID_CORPSE:
-                    recvPacket >> sObjectMgr->_hiCorpseGuid;
-                    break;
-            }
-            recvPacket >> sObjectMgr->_hiRange;
-            break;
-        }
-        case CL_DEF_SHUTDOWN:
-        {
-            uint32 time;
-            recvPacket >> time;
-            sWorld->ShutdownServ(time, 0, SHUTDOWN_EXIT_CODE);
-            break;
-        }
-    }
+{ 
 }

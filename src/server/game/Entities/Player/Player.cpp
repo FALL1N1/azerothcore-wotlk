@@ -74,7 +74,6 @@
 #include "GameObjectAI.h"
 #include "PoolMgr.h"
 #include "SavingSystem.h"
-#include "TicketMgr.h"
 #include "ScriptMgr.h"
 #include "GameGraveyard.h"
 
