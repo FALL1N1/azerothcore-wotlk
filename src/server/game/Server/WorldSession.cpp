@@ -1641,5 +1641,5 @@ void WorldSession::SendChangeNode(uint32 NodeID)
 
     SendNotification("Performing a save and changing node...");
     _newNode = NodeID;
-    _player->PerformNodeChangeStuff("WorldSession::SendChangeNode WorldSession.cpp::454");
+    //_player->PerformNodeChangeStuff("WorldSession::SendChangeNode WorldSession.cpp::454");
 }

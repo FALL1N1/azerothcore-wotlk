@@ -147,7 +147,7 @@ int Master::Run()
         return 1;
 
     // set server offline (not connectable)
-    LoginDatabase.DirectPExecute("UPDATE realmlist SET color = (color & ~%u) | %u WHERE id = '%d'", REALM_FLAG_OFFLINE, REALM_FLAG_INVALID, realmID);
+    //LoginDatabase.DirectPExecute("UPDATE realmlist SET color = (color & ~%u) | %u WHERE id = '%d'", REALM_FLAG_OFFLINE, REALM_FLAG_INVALID, realmID);
 
     sLogon->LoadConfigSettings();
     sLogon->SetInitialLogonSettings();
@@ -267,12 +267,12 @@ int Master::Run()
     }
 
     // set server online (allow connecting now)
-    LoginDatabase.DirectPExecute("UPDATE realmlist SET color = color & %u, population = 0 WHERE id = '%u'", REALM_FLAG_INVALID, realmID);
+    //LoginDatabase.DirectPExecute("UPDATE realmlist SET color = color & %u, population = 0 WHERE id = '%u'", REALM_FLAG_INVALID, realmID);
 
     sNetworkMgr->wait();
 
     // set server offline
-    LoginDatabase.DirectPExecute("UPDATE realmlist SET color = color | %u WHERE id = '%d'", REALM_FLAG_OFFLINE, realmID);
+    //LoginDatabase.DirectPExecute("UPDATE realmlist SET color = color | %u WHERE id = '%d'", REALM_FLAG_OFFLINE, realmID);
 
     // when the main thread closes the singletons get unloaded
     // since worldrunnable uses them, it will crash if unloaded after master
@@ -442,14 +442,6 @@ bool Master::_StartDB()
     if (!LogonDatabase.Open(dbstring, async_threads, synch_threads))
     {
         sLog->outError("Cannot connect to logon database %s", dbstring.c_str());
-        return false;
-    }
-
-    ///- Get log database info from configuration file
-    dbstring = sConfigMgr->GetStringDefault("LogDatabaseInfo", "");
-    if (dbstring.empty())
-    {
-        sLog->outError("Log database not specified in configuration file");
         return false;
     }
 

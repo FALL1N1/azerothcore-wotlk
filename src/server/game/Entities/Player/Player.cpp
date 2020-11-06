@@ -80,6 +80,7 @@
 #ifdef ELUNA
 #include "LuaEngine.h"
 #endif
+#include "ClusterDefines.h"
 
 #define ZONE_UPDATE_INTERVAL (2*IN_MILLISECONDS)
 

@@ -195,56 +195,9 @@ bool LoginQueryHolder::Initialize()
     return res;
 }
 
-void WorldSession::HandleCharEnum(PreparedQueryResult result)
-{
-    WorldPacket data(SMSG_CHAR_ENUM, 100);                  // we guess size
+void WorldSession::HandleCharEnum(PreparedQueryResult result) { }
 
-    uint8 num = 0;
-
-    data << num;
-
-    _legitCharacters.clear();
-    if (result)
-    {
-        do
-        {
-            uint32 guidlow = (*result)[0].GetUInt32();
-#if defined(ENABLE_EXTRAS) && defined(ENABLE_EXTRA_LOGS)
-            sLog->outDetail("Loading char guid %u from account %u.", guidlow, GetAccountId());
-#endif
-            if (Player::BuildEnumData(result, &data))
-            {
-                _legitCharacters.insert(guidlow);
-                ++num;
-            }
-        } while (result->NextRow());
-    }
-
-    data.put<uint8>(0, num);
-
-    SendPacket(&data);
-}
-
-void WorldSession::HandleCharEnumOpcode(WorldPacket& /*recvData*/)
-{
-    // remove expired bans
-    // pussywizard: moved to world update to do it once >_>
-    // PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_EXPIRED_BANS);
-    // CharacterDatabase.Execute(stmt);
-    PreparedStatement* stmt;
-
-    /// get all the data necessary for loading all characters (along with their pets) on the account
-
-    if (sWorld->getBoolConfig(CONFIG_DECLINED_NAMES_USED))
-        stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_ENUM_DECLINED_NAME);
-    else
-        stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_ENUM);
-
-    stmt->setUInt8(0, PET_SAVE_AS_CURRENT);
-    stmt->setUInt32(1, GetAccountId());
-
-    _charEnumCallback = CharacterDatabase.AsyncQuery(stmt);
-}
+void WorldSession::HandleCharEnumOpcode(WorldPacket & /*recvData*/) { }
 
 void WorldSession::HandleCharCreateOpcode(WorldPacket& recvData)
 {

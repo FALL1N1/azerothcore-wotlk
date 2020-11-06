@@ -11,20 +11,12 @@
 #include "Logon.h"
 #include "AddonMgr.h"
 #include "ObjectMgr.h"
-#include "LocalesMgr.h" 
 
 #include "WorldPacket.h"
 #include "Opcodes.h"
 #include "ControlSessionMgr.h"
 #include "ControlSession.h"
-#include "DatabaseRoutines.h" 
-
-//Caching
-#include "GameObjects.h"
-#include "Creatures.h"
-#include "Items.h"
-#include "Quest.h"
-
+#include "DatabaseRoutines.h"  
  
 #include "AutoBroadcast.h"
 
@@ -337,10 +329,10 @@ void Logon::SetInitialLogonSettings()
     srand((unsigned int)time(NULL));
 
     ///- Loading strings. Getting no records means core load has to be canceled because no error message can be output.
-    sLog->outString();
-    sLog->outString("Loading Trinity strings...");
-    if (!sObjectMgr->LoadTrinityStrings())
-        exit(1);                                            // Error message displayed in function already
+    //sLog->outString();
+    //sLog->outString("Loading Trinity strings...");
+    //if (!sObjectMgr->LoadTrinityStrings())
+        //exit(1);                                            // Error message displayed in function already
 
     //Update Realmlist
     uint32 server_type;
@@ -361,21 +353,10 @@ void Logon::SetInitialLogonSettings()
     ///- Load the DBC files
     sLog->outString("Initialize data stores...");
     LoadDBCStores(m_dataPath);
-    DetectDBCLang();
-    sLog->outString("Loading Locales...");
-    sLocalesMgr->LoadLocales();
+    DetectDBCLang(); 
 
     sLog->outString("Loading client addons...");
     sAddonMgr->LoadFromDB();
-
-    sLog->outString("Loading Cache...");
-    sGameObjects->WarmingCache();
-    sCreatures->WarmingCache();
-    sQuest->WarmingCache();
-    sLog->outString();
-
-    sItems->WarmingCache();
-    sLog->outString();
       
     sLog->outString("Loading LogonServer States...");              // must be loaded before battleground, outdoor PvP and conditions
     LoadLogonStates();
@@ -388,8 +369,8 @@ void Logon::SetInitialLogonSettings()
     InitAntiSpam();
     sClientSessionMgr->Initialize();
 
-    sLog->outString("Loading Autobroadcasts...");
-    sAutoBroadcast.load();
+    //sLog->outString("Loading Autobroadcasts...");
+    //sAutoBroadcast.load();
 
     ///- Initialize game time and timers
     sLog->outString("Initialize game time and timers");
@@ -994,6 +975,7 @@ bool Logon::RemoveBanCharacter(std::string name)
 
 void Logon::InitAntiSpam()
 {
+    return;
     ACORE_GUARD(ACE_Thread_Mutex, _Mutex_);
     _antiSpam.clear();
     QueryResult result = LoginDatabase.Query("SELECT input FROM antispam");

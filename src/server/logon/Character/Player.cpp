@@ -6,11 +6,7 @@
 #include "WorldPacket.h"
 #include "Opcodes.h"
 #include "Language.h"
-#include "SocialMgr.h"
-
-#include "Creatures.h"
-#include "Items.h"
-
+#include "SocialMgr.h" 
 #include "LoginHolderEnum.h"
 
 enum CharacterFlags
@@ -467,6 +463,7 @@ bool Player::BuildEnumData(PreparedQueryResult result, WorldPacket* data)
     uint32 petLevel = 0;
     uint32 petFamily = 0;
 
+    /*
     // show pet at selection character in character list only for non-ghost character
     if (result && !(playerFlags & PLAYER_FLAGS_GHOST) && (plrClass == CLASS_WARLOCK || plrClass == CLASS_HUNTER || plrClass == CLASS_DEATH_KNIGHT))
     {
@@ -478,7 +475,7 @@ bool Player::BuildEnumData(PreparedQueryResult result, WorldPacket* data)
             petLevel = fields[18].GetUInt16();
             petFamily = creatureInfo->family;
         }
-    }
+    }*/
 
     *data << uint32(petDisplayId);
     *data << uint32(petLevel);
@@ -489,17 +486,19 @@ bool Player::BuildEnumData(PreparedQueryResult result, WorldPacket* data)
     {
         uint32 visualBase = slot * 2;
         uint32 itemId = GetUInt32ValueFromArray(equipment, visualBase);
-        ItemTemplate const* proto = sItems->GetItemTemplate(itemId);
-        if (!proto)
-        {
+        //ItemTemplate const* proto = sItems->GetItemTemplate(itemId);
+        //if (!proto)
+        //{
             *data << uint32(0);
             *data << uint8(0);
             *data << uint32(0);
-            continue;
-        }
+            //continue;
+        //}
 
-        *data << uint32(proto->DisplayInfoID);
-        *data << uint8(proto->InventoryType);
+        //*data << uint32(proto->DisplayInfoID);
+        //*data << uint8(proto->InventoryType);
+        *data << uint32(0);
+        *data << uint8(0);
 
         /*
         SpellItemEnchantmentEntry const* enchant = NULL;

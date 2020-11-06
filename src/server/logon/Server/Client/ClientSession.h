@@ -168,7 +168,6 @@ public:
     /*********************************************************/
     LocaleConstant GetSessionDbcLocale() const { return _sessionDbcLocale; }
     LocaleConstant GetSessionDbLocaleIndex() const { return _sessionDbLocaleIndex; }
-    const char *GetTrinityString(int32 entry) const;
 
     /*********************************************************/
     /***                   TUTORIALS                       ***/
@@ -205,16 +204,7 @@ public:
     void HandlePlayerLogoutRequest(WorldPacket& recv_data);
     void HandleLogoutCancelOpcode(WorldPacket& recv_data); 
     void HandleWorldStateUITimerUpdate(WorldPacket& /*recv_data*/);
-
-    //QueryCache
-    void HandleGameObjectQueryOpcode(WorldPacket & recv_data);
-    void HandleCreatureQueryOpcode(WorldPacket & recv_data);
-    void HandleItemQuerySingleOpcode(WorldPacket & recv_data);
-    void HandleQuestQueryOpcode(WorldPacket & recv_data);
-
-    //Temp use
-    //void SMSG_LOGIN_VERIFY_WORLD(WorldPacket& recvPacket);
-
+ 
     //Groups
     void HandleGroupInviteOpcode(WorldPacket& recvPacket);
  

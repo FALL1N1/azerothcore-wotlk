@@ -117,7 +117,7 @@ void utf8print(void* /*arg*/, const char* str)
 
 void commandFinished(void*, bool /*success*/)
 {
-    printf("Strawberry> ");
+    printf("AzerothCoreRealm> ");
     fflush(stdout);
 }
 
@@ -577,7 +577,7 @@ void CliRunnable::run()
 
     // print this here the first time
     // later it will be printed after command queue updates
-    printf("Strawberry>");
+    printf("AzerothCoreRealm>");
 
     ///- As long as the World is running (no World::m_stopEvent), get the command line and handle it
     while (!Logon::IsStopped())
@@ -590,7 +590,7 @@ void CliRunnable::run()
         char commandbuf[256];
         command_str = fgets(commandbuf, sizeof(commandbuf), stdin);
         #else
-        command_str = readline("Strawberry>");
+        command_str = readline("AzerothCoreRealm>");
         rl_bind_key('\t',rl_complete);
         #endif
         if (command_str != NULL)
@@ -605,7 +605,7 @@ void CliRunnable::run()
             if (!*command_str)
             {
                 #if PLATFORM == PLATFORM_WINDOWS
-                printf("Strawberry>");
+                printf("AzerothCoreRealm>");
                 #endif
                 continue;
             }
@@ -614,7 +614,7 @@ void CliRunnable::run()
             if (!consoleToUtf8(command_str, command))         // convert from console encoding to utf8
             {
                 #if PLATFORM == PLATFORM_WINDOWS
-                printf("Strawberry>");
+                printf("AzerothCoreRealm>");
                 #endif
                 continue;
             }

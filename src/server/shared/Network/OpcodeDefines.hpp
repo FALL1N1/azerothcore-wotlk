@@ -1223,7 +1223,7 @@ enum Opcodes
     CMSG_GM_GRANT_ACHIEVEMENT                       = 0x4C4,
     CMSG_GM_REMOVE_ACHIEVEMENT                      = 0x4C5,
     CMSG_GM_SET_CRITERIA_FOR_PLAYER                 = 0x4C6,
-    SMSG_ARENA_OPPONENT_UPDATE                      = 0x4C7, // uint64
+    SMSG_ARENA_UNIT_DESTROYED                       = 0x4C7,
     SMSG_ARENA_TEAM_CHANGE_FAILED_QUEUED            = 0x4C8, // uint32 "Can't modify arena team while queued or in a match."
     CMSG_PROFILEDATA_REQUEST                        = 0x4C9,
     SMSG_PROFILEDATA_RESPONSE                       = 0x4CA,
@@ -1291,7 +1291,7 @@ enum Opcodes
     CMSG_SET_ALLOW_LOW_LEVEL_RAID1                  = 0x508,
     CMSG_SET_ALLOW_LOW_LEVEL_RAID2                  = 0x509,
     SMSG_CAMERA_SHAKE                               = 0x50A, // uint32 SpellEffectCameraShakes.dbc index, uint32
-    SMSG_UPDATE_ITEM_ENCHANTMENTS                   = 0x50B, // some item update packet?
+    SMSG_SOCKET_GEMS_RESULT                         = 0x50B,
     CMSG_SET_CHARACTER_MODEL                        = 0x50C,
     SMSG_REDIRECT_CLIENT                            = 0x50D, // uint32 ip, uint16 port, uint32 unk, uint8[20] hash (ip + port, seed=sessionkey)
     CMSG_REDIRECTION_FAILED                         = 0x50E, // something with networking
@@ -1314,7 +1314,7 @@ enum Opcodes
     NUM_CLIENT_MSG_TYPES                            = 0x51F, // End of Client MSGs
     LOGON_AUTH_MASTER                               = 0x520, // AUTH da master
     LOGON_INIT_NODE                                 = 0x521, // Init our Node
-    NODE_INIT_ACK                                   = 0x522, // Ack von der Node fürs Init
+    NODE_INIT_ACK                                   = 0x522, // Ack von der Node fÃ¼rs Init
     LOGON_SYNC_DATA                                 = 0x523, // Datas for Sync-Control
     NODE_SYNC_DATA                                  = 0x524, // Datas for Sync-Control
     NODE_PLAYER_CHANGED_ZONE                        = 0x525, //

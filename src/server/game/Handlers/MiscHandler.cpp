@@ -2022,3 +2022,29 @@ void WorldSession::HandleUpdateMissileTrajectory(WorldPacket& recvPacket)
         HandleMovementOpcodes(recvPacket);
     }
 }
+
+void WorldSession::HandleNodeDataReciever(WorldPacket& recvPacket)
+{
+    sLog->outString("received opcode (CLUSTER_PLAYER_DATA) from proxy");
+    std::string invitedName;
+    uint32 packet;
+
+    recvPacket >> packet;
+
+    switch (packet)
+    {
+        /*case PTN_GUILD_INVITE:
+        {
+            recvPacket >> invitedName;
+
+            if (normalizePlayerName(invitedName))
+                if (Guild* guild = GetPlayer()->GetGuild())
+                    guild->HandleInviteMember(this, invitedName);
+            sLog->outString("received packet(%u PTN_GUILD_INVITE) from proxy", packet);
+            break; 
+        }*/
+        default:
+            sLog->outString("received unhandled packet(%u) from proxy", packet);
+            break;
+    }
+}

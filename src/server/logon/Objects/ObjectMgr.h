@@ -78,21 +78,9 @@ class ObjectMgr
         //GUID_Handlings
         void SetHighestGuids();
         uint32 IncreaseGroupId();
-
-        bool LoadTrinityStrings(char const* table, int32 min_value, int32 max_value);
-        bool LoadTrinityStrings() { return LoadTrinityStrings("trinity_string", MIN_TRINITY_STRING_ID, MAX_TRINITY_STRING_ID); }
-
+        
         static void AddLocaleString(const std::string& s, LocaleConstant locale, StringVector& data);
-
-        TrinityStringLocale const* GetTrinityStringLocale(int32 entry) const
-        {
-            TrinityStringLocaleContainer::const_iterator itr = _trinityStringLocaleStore.find(entry);
-            if (itr == _trinityStringLocaleStore.end()) return NULL;
-            return &itr->second;
-        }
-
-        const char *GetTrinityString(int32 entry, LocaleConstant locale_idx) const;
-        const char *GetTrinityStringForDBCLocale(int32 entry) const { return GetTrinityString(entry, DBCLocaleIndex); }
+ 
         LocaleConstant GetDBCLocaleIndex() const { return DBCLocaleIndex; }
 
         // first free id for selected id type
