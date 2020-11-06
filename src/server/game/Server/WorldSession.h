@@ -343,6 +343,8 @@ public:
 
     void DoLootRelease(uint64 lguid);
 
+    void SendChangeNode(uint32 NodeID);
+
     // Account mute time
     time_t m_muteTime;
 
@@ -891,6 +893,7 @@ public:                                                 // opcodes handlers
     void HandleEjectPassenger(WorldPacket& data);
     void HandleEnterPlayerVehicle(WorldPacket& data);
     void HandleUpdateProjectilePosition(WorldPacket& recvPacket);
+	void HandleNodeDataReciever(WorldPacket& recvPacket);
 
     // _loadPetFromDBFirstCallback helpers
     //QueryCallback<PreparedQueryResult, uint64> GetLoadPetFromDBFirstCallback() { return _loadPetFromDBFirstCallback; }
@@ -1025,6 +1028,8 @@ private:
     bool _shouldSetOfflineInDB;
     // Packets cooldown
     time_t _calendarEventCreationCooldown;
+    bool m_forceTele;
+    uint32 _newNode;
 };
 #endif
 /// @}

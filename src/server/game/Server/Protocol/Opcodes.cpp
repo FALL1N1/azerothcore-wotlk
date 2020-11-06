@@ -1325,4 +1325,16 @@ OpcodeHandler opcodeTable[NUM_MSG_TYPES] =
     /*0x51C*/ { "SMSG_COMMENTATOR_SKIRMISH_QUEUE_RESULT1",                 STATUS_NEVER,      PROCESS_INPLACE,        &WorldSession::Handle_ServerSide                        },
     /*0x51D*/ { "SMSG_COMMENTATOR_SKIRMISH_QUEUE_RESULT2",                 STATUS_NEVER,      PROCESS_INPLACE,        &WorldSession::Handle_ServerSide                        },
     /*0x51E*/ { "SMSG_COMPRESSED_UNKNOWN_1310",                            STATUS_NEVER,      PROCESS_INPLACE,        &WorldSession::Handle_ServerSide                        },
+    // custom
+    /*0x51F*/ { "NUM_CLIENT_MSG_TYPES",                                    STATUS_NEVER,      PROCESS_INPLACE,        &WorldSession::Handle_NULL                              }, 
+    /*0x520*/ { "LOGON_AUTH_MASTER",                                       STATUS_NEVER,      PROCESS_INPLACE,        &WorldSession::Handle_ServerSide                        }, 
+    /*0x521*/ { "LOGON_INIT_NODE",                                         STATUS_NEVER,      PROCESS_INPLACE,        &WorldSession::Handle_NULL                              }, 
+    /*0x522*/ { "NODE_INIT_ACK",                                           STATUS_NEVER,      PROCESS_INPLACE,        &WorldSession::Handle_ServerSide                        }, 
+    /*0x523*/ { "LOGON_SYNC_DATA",                                         STATUS_NEVER,      PROCESS_INPLACE,        &WorldSession::Handle_ServerSide                        }, 
+    /*0x524*/ { "NODE_SYNC_DATA",                                          STATUS_NEVER,      PROCESS_INPLACE,        &WorldSession::Handle_ServerSide                        }, 
+    /*0x525*/ { "NODE_PLAYER_CHANGED_ZONE",                                STATUS_NEVER,      PROCESS_INPLACE,        &WorldSession::Handle_ServerSide                        }, 
+    /*0x526*/ { "NODE_PLAYER_DATA",                                        STATUS_NEVER,      PROCESS_INPLACE,        &WorldSession::Handle_ServerSide                        }, 
+    /*0x527*/ { "NODE_MISC_DATA",                                          STATUS_NEVER,      PROCESS_INPLACE,        &WorldSession::Handle_ServerSide                        },
+    /*0x528*/ { "NODE_PLAYERHOLDER_DATA",                                  STATUS_NEVER,      PROCESS_INPLACE,        &WorldSession::Handle_ServerSide                        },
+    /*0x529*/ { "CLUSTER_PLAYER_DATA",                          STATUS_LOGGEDIN,   PROCESS_INPLACE,        &WorldSession::HandleNodeDataReciever                   },
 };

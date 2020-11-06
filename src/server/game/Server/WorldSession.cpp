@@ -36,6 +36,9 @@
 #ifdef ELUNA
 #include "LuaEngine.h"
 #endif
+#include "MoveSpline.h"
+#include "ClusterDefines.h"
+#include "PoolSessionMgr.h"
 
 namespace
 {
@@ -114,7 +117,9 @@ WorldSession::WorldSession(uint32 id, WorldSocket* sock, AccountTypes sec, uint8
     m_currentVendorEntry(0),
     m_currentBankerGUID(0),
     timeWhoCommandAllowed(0),
-    _calendarEventCreationCooldown(0)
+    _calendarEventCreationCooldown(0),
+    m_forceTele(false),
+    _newNode(0)
 {
     memset(m_Tutorials, 0, sizeof(m_Tutorials));
 
@@ -127,7 +132,7 @@ WorldSession::WorldSession(uint32 id, WorldSocket* sock, AccountTypes sec, uint8
         m_Address = sock->GetRemoteAddress();
         sock->AddReference();
         ResetTimeOutTime(false);
-        LoginDatabase.PExecute("UPDATE account SET online = 1 WHERE id = %u;", GetAccountId());
+        //LoginDatabase.PExecute("UPDATE account SET online = online | (1<<(%u-1)) WHERE id = %u;", realmID, GetAccountId());
     }
 
     InitializeQueryCallbackParameters();
@@ -379,6 +384,21 @@ bool WorldSession::Update(uint32 diff, PacketFilter& updater)
 
     if (m_Socket && !m_Socket->IsClosed())
         ProcessQueryCallbacks();
+
+    if (_newNode)
+    {
+        if (Player *player = GetPlayer())
+        {
+            //if (player->IsSaveCommited())
+            {
+                WorldPacket data(NODE_MISC_DATA);
+                data << uint32(CL_DEF_TRANSFER_TO_NODE);
+                data << _newNode;
+                SendPacket(&data);
+                _newNode = 0;
+            }
+        }
+    }
 
     if (updater.ProcessLogout())
     {
@@ -1613,4 +1633,13 @@ uint32 WorldSession::DosProtection::GetMaxPacketCounterAllowed(uint16 opcode) co
     }
 
     return maxPacketCounterAllowed;
+}
+
+void WorldSession::SendChangeNode(uint32 NodeID)
+{
+    _player->SaveToDB(false, true); //Save the player
+
+    SendNotification("Performing a save and changing node...");
+    _newNode = NodeID;
+    _player->PerformNodeChangeStuff("WorldSession::SendChangeNode WorldSession.cpp::454");
 }

@@ -753,7 +753,7 @@ int WorldSocket::HandleAuthSession(WorldPacket& recvPacket)
     WorldPacket packet, SendAddonPacked;
 
     BigNumber k;
-    bool wardenActive = sWorld->getBoolConfig(CONFIG_WARDEN_ENABLED);
+    bool authed, forceTele;
 
     if (sWorld->IsClosed())
     {
@@ -761,33 +761,37 @@ int WorldSocket::HandleAuthSession(WorldPacket& recvPacket)
         packet << uint8(AUTH_REJECT);
         SendPacket(packet);
 
-        sLog->outError("WorldSocket::HandleAuthSession: World closed, denying client (%s).", GetRemoteAddress().c_str());
+        sLog->outString("WorldSocket::HandleAuthSession: World closed, denying client (%s).", GetRemoteAddress().c_str());
         return -1;
     }
 
     // Read the content of the packet
-    recvPacket >> BuiltNumberClient;                        // for now no use
-    recvPacket >> loginServerID;
-    recvPacket >> account;
-    recvPacket >> loginServerType;
-    recvPacket >> clientSeed;
-    recvPacket >> regionID;
-    recvPacket >> battlegroupID;
-    recvPacket >> realm;
-    recvPacket >> DosResponse;
-    recvPacket.read(digest, 20);
+    recvPacket >> account;                        // for now no use
+    recvPacket >> id;
+    recvPacket >> security;
+    recvPacket >> authed;
+    recvPacket >> forceTele;
 
-#if defined(ENABLE_EXTRAS) && defined(ENABLE_EXTRA_LOGS)
-    sLog->outStaticDebug ("WorldSocket::HandleAuthSession: client %u, loginServerID %u, account %s, loginServerType %u, clientseed %u", BuiltNumberClient, loginServerID, account.c_str(), loginServerType, clientSeed);
-#endif
     // Get the account information from the realmd database
-    //         0           1        2       3        4            5         6       7          8      9      10
-    // SELECT id, sessionkey, last_ip, locked, lock_country, expansion, mutetime, locale, recruiter, os, totaltime FROM account WHERE username = ?
-    PreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_SEL_ACCOUNT_INFO_BY_NAME);
+    std::string safe_account = account; // Duplicate, else will screw the SHA hash verification below
+    LoginDatabase.EscapeString(safe_account);
+    // No SQL injection, username escaped.
 
-    stmt->setString(0, account);
-
-    PreparedQueryResult result = LoginDatabase.Query(stmt);
+    QueryResult result =
+          LoginDatabase.PQuery ("SELECT "
+                                "id, "                      //0
+                                "sessionkey, "              //1
+                                "last_ip, "                 //2
+                                "locked, "                  //3
+                                "v, "                       //4
+                                "s, "                       //5
+                                "expansion, "               //6
+                                "mutetime, "                //7
+                                "locale, "                  //8
+                                "recruiter "                //9
+                                "FROM account "
+                                "WHERE username = '%s'",
+                                safe_account.c_str());
 
     // Stop if the account is not found
     if (!result)
@@ -1021,6 +1025,8 @@ int WorldSocket::HandleAuthSession(WorldPacket& recvPacket)
     uint32 sleepTime = sWorld->getIntConfig(CONFIG_SESSION_ADD_DELAY);
     std::this_thread::sleep_for(Microseconds(sleepTime));
 
+	m_Session->SetAuthed(authed);
+	m_Session->SetForceTele(forceTele);
     sWorld->AddSession(m_Session);
 
     return 0;
