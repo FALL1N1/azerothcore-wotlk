@@ -295,7 +295,6 @@ void ClientSessionMgr::AddSession_(ClientSession* s)
     }
 
     s->SendAuthResponse(AUTH_OK, true);
-    s->SendAuthResponse(0, true);
 
     s->SendAddonsInfo();
 
