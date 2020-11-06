@@ -1,8 +1,7 @@
 #ifndef __CONTROLSESSION_H
 #define __CONTROLSESSION_H
 
-#include "Logon.h"
-#include "AddonMgr.h"
+#include "Logon.h" 
 #include "DatabaseEnv.h"
 #include "ByteBuffer.h"
 #include "Logon.h"

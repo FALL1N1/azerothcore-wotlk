@@ -220,7 +220,8 @@ struct AchievementCriteriaEntry
         // ACHIEVEMENT_CRITERIA_TYPE_WIN_ARENA              = 32
         struct
         {
-            uint32  mapID;                                  // 3 Reference to Map.dbc
+            uint32 mapID;                                   // 3 Reference to Map.dbc
+            uint32 count;                                   // 4 Number of times that the arena must be won.
         } win_arena;
 
         // ACHIEVEMENT_CRITERIA_TYPE_PLAY_ARENA             = 33
@@ -367,6 +368,7 @@ struct AchievementCriteriaEntry
             uint32  emoteID;                                // 3 enum TextEmotes
             uint32  count;                                  // 4 count of emotes, always required special target or requirements
         } do_emote;
+
         // ACHIEVEMENT_CRITERIA_TYPE_DAMAGE_DONE            = 13
         // ACHIEVEMENT_CRITERIA_TYPE_HEALING_DONE           = 55
         struct
@@ -535,6 +537,17 @@ struct AreaTableEntry
             return true;
         return (flags & AREA_FLAG_SANCTUARY);
     }
+    /*
+    // Xinef: mark some zones / areas as inns
+    bool IsInn(TeamId teamId) const
+    {
+        if (teamId == TEAM_ALLIANCE)
+            return flags & AREA_FLAG_REST_ZONE_ALLIANCE;
+        else if (teamId == TEAM_HORDE)
+            return flags & AREA_FLAG_REST_ZONE_HORDE;
+        return false;
+    }
+    */
 };
 
 #define MAX_GROUP_AREA_IDS 6
@@ -627,22 +640,22 @@ struct BattlemasterListEntry
 struct CharStartOutfitEntry
 {
     //uint32 Id;                                            // 0
-    uint32 RaceClassGender;                                 // 1 (UNIT_FIELD_BYTES_0 & 0x00FFFFFF) comparable (0 byte = race, 1 byte = class, 2 byte = gender)
-    int32 ItemId[MAX_OUTFIT_ITEMS];                         // 2-13
-    //int32 ItemDisplayId[MAX_OUTFIT_ITEMS];                // 14-25 not required at server side
-    //int32 ItemInventorySlot[MAX_OUTFIT_ITEMS];            // 26-37 not required at server side
-    //uint32 Unknown1;                                      // 38, unique values (index-like with gaps ordered in other way as ids)
-    //uint32 Unknown2;                                      // 39
-    //uint32 Unknown3;                                      // 40
+    uint8 Race;                                             // 1
+    uint8 Class;                                            // 2
+    uint8 Gender;                                           // 3
+    //uint8 Unused;                                         // 4
+    int32 ItemId[MAX_OUTFIT_ITEMS];                         // 5-28
+    //int32 ItemDisplayId[MAX_OUTFIT_ITEMS];                // 29-52 not required at server side
+    //int32 ItemInventorySlot[MAX_OUTFIT_ITEMS];            // 53-76 not required at server side
 };
 
 struct CharTitlesEntry
 {
     uint32  ID;                                             // 0, title ids, for example in Quest::GetCharTitleId()
     //uint32      unk1;                                     // 1 flags?
-    char*   name[16];                                       // 2-17
+    char*   nameMale[16];                                   // 2-17
                                                             // 18 string flag, unused
-    //char*       name2[16];                                // 19-34, unused
+    char*   nameFemale[16];                                 // 19-34
                                                             // 35 string flag, unused
     uint32  bit_index;                                      // 36 used in PLAYER_CHOSEN_TITLE and 1<<index in PLAYER__FIELD_KNOWN_TITLES
 };
@@ -917,12 +930,16 @@ struct FactionTemplateEntry
     // helpers
     bool IsFriendlyTo(FactionTemplateEntry const& entry) const
     {
+        // Xinef: Always friendly to self faction
+        if (faction == entry.faction)
+            return true;
+
         if (entry.faction)
         {
-            for (int i = 0; i < MAX_FACTION_RELATIONS; ++i)
+            for (uint8 i = 0; i < MAX_FACTION_RELATIONS; ++i)
                 if (enemyFaction[i] == entry.faction)
                     return false;
-            for (int i = 0; i < MAX_FACTION_RELATIONS; ++i)
+            for (uint8 i = 0; i < MAX_FACTION_RELATIONS; ++i)
                 if (friendFaction[i] == entry.faction)
                     return true;
         }
@@ -932,10 +949,10 @@ struct FactionTemplateEntry
     {
         if (entry.faction)
         {
-            for (int i = 0; i < MAX_FACTION_RELATIONS; ++i)
+            for (uint8 i = 0; i < MAX_FACTION_RELATIONS; ++i)
                 if (enemyFaction[i] == entry.faction)
                     return true;
-            for (int i = 0; i < MAX_FACTION_RELATIONS; ++i)
+            for (uint8 i = 0; i < MAX_FACTION_RELATIONS; ++i)
                 if (friendFaction[i] == entry.faction)
                     return false;
         }
@@ -944,7 +961,7 @@ struct FactionTemplateEntry
     bool IsHostileToPlayers() const { return (hostileMask & FACTION_MASK_PLAYER) !=0; }
     bool IsNeutralToAll() const
     {
-        for (int i = 0; i < MAX_FACTION_RELATIONS; ++i)
+        for (uint8 i = 0; i < MAX_FACTION_RELATIONS; ++i)
             if (enemyFaction[i] != 0)
                 return false;
         return hostileMask == 0 && friendlyMask == 0;
@@ -1016,6 +1033,11 @@ struct GtChanceToMeleeCritEntry
 struct GtChanceToSpellCritBaseEntry
 {
     float    base;
+};
+
+struct GtNPCManaCostScalerEntry
+{
+    float    ratio;
 };
 
 struct GtChanceToSpellCritEntry
@@ -1091,7 +1113,7 @@ struct ItemEntry
    uint32   ID;                                             // 0
    uint32   Class;                                          // 1
    uint32   SubClass;                                       // 2 some items have strange subclasses
-   int32    Unk0;                                           // 3
+   int32    SoundOverrideSubclass;                          // 3
    int32    Material;                                       // 4
    uint32   DisplayId;                                      // 5
    uint32   InventoryType;                                  // 6
@@ -1110,7 +1132,7 @@ struct ItemDisplayInfoEntry
     uint32      ID;                                         // 0        m_ID
                                                             // 1        m_modelName[2]
                                                             // 2        m_modelTexture[2]
-                                                            // 3        m_inventoryIcon
+    char*       inventoryIcon;                              // 3        m_inventoryIcon
                                                             // 4        m_geosetGroup[3]
                                                             // 5        m_flags
                                                             // 6        m_spellVisualID
@@ -1194,7 +1216,7 @@ struct ItemSetEntry
 struct LFGDungeonEntry
 {
     uint32  ID;                                             // 0
-    //char*   name[16];                                     // 1-17 Name lang
+    char*   name[16];                                       // 1-17 Name lang
     uint32  minlevel;                                       // 18
     uint32  maxlevel;                                       // 19
     uint32  reclevel;                                       // 20
@@ -1202,7 +1224,7 @@ struct LFGDungeonEntry
     uint32  recmaxlevel;                                    // 22
     int32   map;                                            // 23
     uint32  difficulty;                                     // 24
-    //uint32  flags;                                        // 25
+    uint32  flags;                                          // 25
     uint32  type;                                           // 26
     //uint32  unk;                                          // 27
     //char*   iconname;                                     // 28
@@ -1214,6 +1236,24 @@ struct LFGDungeonEntry
     uint32 Entry() const { return ID + (type << 24); }
 };
 
+struct LightEntry
+{
+    uint32 Id;
+    uint32 MapId;
+    float X;
+    float Y;
+    float Z;
+    //float FalloffStart;
+    //float FalloffEnd;
+    //uint32 SkyAndFog;
+    //uint32 WaterSettings;
+    //uint32 SunsetParams;
+    //uint32 OtherParams;
+    //uint32 DeathParams;
+    //uint32 Unknown;
+    //uint32 Unknown;
+    //uint32 Unknown;
+};
 
 struct LiquidTypeEntry
 {
@@ -1262,7 +1302,7 @@ struct MapEntry
     uint32  MapID;                                          // 0
     //char*       internalname;                             // 1 unused
     uint32  map_type;                                       // 2
-    //uint32 unk_330;                                       // 3
+    uint32  Flags;                                          // 3
                                                             // 4 0 or 1 for battlegrounds (not arenas)
     char*   name[16];                                       // 5-20
                                                             // 21 name flags, unused
@@ -1272,14 +1312,14 @@ struct MapEntry
     //char*     allianceIntro[16];                          // 40-55 text for PvP Zones
                                                             // 56 intro text flags
     uint32  multimap_id;                                    // 57
-                                                            // 58
+    //float BattlefieldMapIconScale;                        // 58
     int32   entrance_map;                                   // 59 map_id of entrance map
     float   entrance_x;                                     // 60 entrance x coordinate (if exist single entry)
     float   entrance_y;                                     // 61 entrance y coordinate (if exist single entry)
-                                                            // 62 -1, 0 and 720
+    //uint32 TimeOfDayOverride;                             // 62 -1, 0 and 720
     uint32  addon;                                          // 63 (0-original maps, 1-tbc addon)
     uint32  unk_time;                                       // 64 some kind of time?
-    //uint32 maxPlayers;                                    // 65 max players
+    uint32  maxPlayers;                                     // 65 max players, fallback if not present in MapDifficulty.dbc
 
     // Helpers
     uint32 Expansion() const { return addon; }
@@ -1291,6 +1331,7 @@ struct MapEntry
     bool IsBattleground() const { return map_type == MAP_BATTLEGROUND; }
     bool IsBattleArena() const { return map_type == MAP_ARENA; }
     bool IsBattlegroundOrArena() const { return map_type == MAP_BATTLEGROUND || map_type == MAP_ARENA; }
+    bool IsWorldMap() const { return map_type == MAP_COMMON; }
 
     bool GetEntrancePos(int32 &mapid, float &x, float &y) const
     {
@@ -1306,6 +1347,8 @@ struct MapEntry
     {
         return MapID == 0 || MapID == 1 || MapID == 530 || MapID == 571;
     }
+
+    bool IsDynamicDifficultyMap() const { return Flags & MAP_FLAG_DYNAMIC_DIFFICULTY; }
 };
 
 struct MapDifficultyEntry
@@ -1336,6 +1379,16 @@ struct OverrideSpellDataEntry
     //uint32      unk0;                                     // 11
 };
 
+struct PowerDisplayEntry
+{
+    uint32 Id;                                              // 0
+    uint32 PowerType;                                       // 1
+    //char*  Name;                                          // 2
+    //uint32 R;                                             // 3
+    //uint32 G;                                             // 4
+    //uint32 B;                                             // 5
+};
+
 struct PvPDifficultyEntry
 {
     //uint32      id;                                       // 0        m_ID
@@ -1346,6 +1399,7 @@ struct PvPDifficultyEntry
     uint32      difficulty;                                 // 5
 
     // helpers
+    PvPDifficultyEntry(uint32 mapId, uint32 bracketId, uint32 minLevel, uint32 maxLevel, uint32 difficulty) : mapId(mapId), bracketId(bracketId), minLevel(minLevel), maxLevel(maxLevel), difficulty(difficulty) {}
     BattlegroundBracketId GetBracketId() const { return BattlegroundBracketId(bracketId); }
 };
 
@@ -1392,60 +1446,63 @@ struct ScalingStatValuesEntry
     uint32  ssdMultiplier[4];                               // 2-5 Multiplier for ScalingStatDistribution
     uint32  armorMod[4];                                    // 6-9 Armor for level
     uint32  dpsMod[6];                                      // 10-15 DPS mod for level
-    uint32  spellBonus;                                     // 16 spell power for level
+    uint32  spellPower;                                     // 16 spell power for level
     uint32  ssdMultiplier2;                                 // 17 there's data from 3.1 dbc ssdMultiplier[3]
     uint32  ssdMultiplier3;                                 // 18 3.3
-    //uint32 unk2;                                          // 19 unk, probably also Armor for level (flag 0x80000?)
-    uint32  armorMod2[4];                                   // 20-23 Armor for level
+    uint32  armorMod2[5];                                   // 19-23 Armor for level
 
-    uint32  getssdMultiplier(uint32 mask) const
+    uint32 getssdMultiplier(uint32 mask) const
     {
         if (mask & 0x4001F)
         {
-            if (mask & 0x00000001) return ssdMultiplier[0];
-            if (mask & 0x00000002) return ssdMultiplier[1];
-            if (mask & 0x00000004) return ssdMultiplier[2];
+            if (mask & 0x00000001) return ssdMultiplier[0]; // Shoulder
+            if (mask & 0x00000002) return ssdMultiplier[1]; // Trinket
+            if (mask & 0x00000004) return ssdMultiplier[2]; // Weapon1H
             if (mask & 0x00000008) return ssdMultiplier2;
-            if (mask & 0x00000010) return ssdMultiplier[3];
+            if (mask & 0x00000010) return ssdMultiplier[3]; // Ranged
             if (mask & 0x00040000) return ssdMultiplier3;
         }
         return 0;
     }
 
-    uint32  getArmorMod(uint32 mask) const
+    uint32 getArmorMod(uint32 mask) const
     {
         if (mask & 0x00F001E0)
         {
-            if (mask & 0x00000020) return armorMod[0];
-            if (mask & 0x00000040) return armorMod[1];
-            if (mask & 0x00000080) return armorMod[2];
-            if (mask & 0x00000100) return armorMod[3];
+            if (mask & 0x00000020) return armorMod[0];      // Cloth shoulder
+            if (mask & 0x00000040) return armorMod[1];      // Leather shoulder
+            if (mask & 0x00000080) return armorMod[2];      // Mail shoulder
+            if (mask & 0x00000100) return armorMod[3];      // Plate shoulder
 
-            if (mask & 0x00100000) return armorMod2[0];      // cloth
-            if (mask & 0x00200000) return armorMod2[1];      // leather
-            if (mask & 0x00400000) return armorMod2[2];      // mail
-            if (mask & 0x00800000) return armorMod2[3];      // plate
+            if (mask & 0x00080000) return armorMod2[0];      // cloak
+            if (mask & 0x00100000) return armorMod2[1];      // cloth
+            if (mask & 0x00200000) return armorMod2[2];      // leather
+            if (mask & 0x00400000) return armorMod2[3];      // mail
+            if (mask & 0x00800000) return armorMod2[4];      // plate
         }
         return 0;
     }
+
     uint32 getDPSMod(uint32 mask) const
     {
-        if (mask&0x7E00)
+        if (mask & 0x7E00)
         {
-            if (mask & 0x00000200) return dpsMod[0];
-            if (mask & 0x00000400) return dpsMod[1];
-            if (mask & 0x00000800) return dpsMod[2];
-            if (mask & 0x00001000) return dpsMod[3];
-            if (mask & 0x00002000) return dpsMod[4];
-            if (mask & 0x00004000) return dpsMod[5];         // not used?
+            if (mask & 0x00000200) return dpsMod[0];        // Weapon 1h
+            if (mask & 0x00000400) return dpsMod[1];        // Weapon 2h
+            if (mask & 0x00000800) return dpsMod[2];        // Caster dps 1h
+            if (mask & 0x00001000) return dpsMod[3];        // Caster dps 2h
+            if (mask & 0x00002000) return dpsMod[4];        // Ranged
+            if (mask & 0x00004000) return dpsMod[5];        // Wand
         }
         return 0;
     }
+
     uint32 getSpellBonus(uint32 mask) const
     {
-        if (mask & 0x00008000) return spellBonus;
+        if (mask & 0x00008000) return spellPower;
         return 0;
     }
+
     uint32 getFeralBonus(uint32 mask) const                 // removed in 3.2.x?
     {
         if (mask & 0x00010000) return 0;                    // not used?
@@ -1655,6 +1712,12 @@ struct SpellCastTimesEntry
     //int32     MinCastTime;                                // 3 unsure
 };
 
+struct SpellCategoryEntry
+{
+    uint32 Id;
+    uint32 Flags;
+};
+
 struct SpellDifficultyEntry
 {
     uint32     ID;                                          // 0
@@ -1671,9 +1734,9 @@ struct SpellFocusObjectEntry
 struct SpellRadiusEntry
 {
     uint32    ID;
-    float     radiusMin;
-    //uint32    Unk    //always 0
-    float     radiusMax;
+    float     RadiusMin;
+    float     RadiusPerLevel;
+    float     RadiusMax;
 };
 
 struct SpellRangeEntry
@@ -1728,7 +1791,7 @@ struct SpellDurationEntry
 struct SpellItemEnchantmentEntry
 {
     uint32      ID;                                         // 0        m_ID
-    //uint32      charges;                                  // 1        m_charges
+    uint32      charges;                                    // 1        m_charges
     uint32      type[MAX_ITEM_ENCHANTMENT_EFFECTS];         // 2-4      m_effect[MAX_ITEM_ENCHANTMENT_EFFECTS]
     uint32      amount[MAX_ITEM_ENCHANTMENT_EFFECTS];       // 5-7      m_effectPointsMin[MAX_ITEM_ENCHANTMENT_EFFECTS]
     //uint32      amount2[MAX_ITEM_ENCHANTMENT_EFFECTS]     // 8-10     m_effectPointsMax[MAX_ITEM_ENCHANTMENT_EFFECTS]
@@ -1787,9 +1850,9 @@ struct TalentEntry
                                                             // 14-15 not used
     uint32    DependsOnRank;                                // 16
                                                             // 17-18 not used
-    //uint32  needAddInSpellBook;                           // 19  also need disable higest ranks on reset talent tree
+    uint32    addToSpellBook;                               // 19  also need disable higest ranks on reset talent tree
     //uint32  unk2;                                         // 20, all 0
-    //uint64  allowForPet;                                  // 21 its a 64 bit mask for pet 1<<m_categoryEnumID in CreatureFamily.dbc
+    //uint64  allowForPet;                                  // 21-22 its a 64 bit mask for pet 1<<m_categoryEnumID in CreatureFamily.dbc
 };
 
 struct TalentTabEntry
@@ -1855,6 +1918,28 @@ struct TotemCategoryEntry
     uint32    categoryMask;                                 // 19 (compatibility mask for same type: different for totems, compatible from high to low for rods)
 };
 
+struct TransportAnimationEntry
+{
+    //uint32  Id;
+    uint32  TransportEntry;
+    uint32  TimeSeg;
+    float   X;
+    float   Y;
+    float   Z;
+    //uint32  MovementId;
+};
+
+struct TransportRotationEntry
+{
+    //uint32  Id;
+    uint32  TransportEntry;
+    uint32  TimeSeg;
+    float   X;
+    float   Y;
+    float   Z;
+    float   W;
+};
+
 #define MAX_VEHICLE_SEATS 8
 
 struct VehicleEntry
@@ -1870,8 +1955,8 @@ struct VehicleEntry
     float   m_cameraFadeDistScalarMin;                      // 15
     float   m_cameraFadeDistScalarMax;                      // 16
     float   m_cameraPitchOffset;                            // 17
-    //int     m_powerType[3];                               //       removed in 3.1
-    //int     m_powerToken[3];                              //       removed in 3.1
+    //int32     m_powerType[3];                               //       removed in 3.1
+    //int32     m_powerToken[3];                              //       removed in 3.1
     float   m_facingLimitRight;                             // 18
     float   m_facingLimitLeft;                              // 19
     float   m_msslTrgtTurnLingering;                        // 20
@@ -1889,9 +1974,72 @@ struct VehicleEntry
     uint32  m_uiLocomotionType;                             // 34
     float   m_msslTrgtImpactTexRadius;                      // 35
     uint32  m_uiSeatIndicatorType;                          // 36
-    uint32  m_powerType;                                    // 37, new in 3.1
+    uint32  m_powerDisplayId;                               // 37, new in 3.1
                                                             // 38, new in 3.1
                                                             // 39, new in 3.1
+};
+
+struct VehicleSeatEntry
+{
+    uint32  m_ID;                                           // 0
+    uint32  m_flags;                                        // 1
+    int32   m_attachmentID;                                 // 2
+    float   m_attachmentOffsetX;                            // 3
+    float   m_attachmentOffsetY;                            // 4
+    float   m_attachmentOffsetZ;                            // 5
+    float   m_enterPreDelay;                                // 6
+    float   m_enterSpeed;                                   // 7
+    float   m_enterGravity;                                 // 8
+    float   m_enterMinDuration;                             // 9
+    float   m_enterMaxDuration;                             // 10
+    float   m_enterMinArcHeight;                            // 11
+    float   m_enterMaxArcHeight;                            // 12
+    int32   m_enterAnimStart;                               // 13
+    int32   m_enterAnimLoop;                                // 14
+    int32   m_rideAnimStart;                                // 15
+    int32   m_rideAnimLoop;                                 // 16
+    int32   m_rideUpperAnimStart;                           // 17
+    int32   m_rideUpperAnimLoop;                            // 18
+    float   m_exitPreDelay;                                 // 19
+    float   m_exitSpeed;                                    // 20
+    float   m_exitGravity;                                  // 21
+    float   m_exitMinDuration;                              // 22
+    float   m_exitMaxDuration;                              // 23
+    float   m_exitMinArcHeight;                             // 24
+    float   m_exitMaxArcHeight;                             // 25
+    int32   m_exitAnimStart;                                // 26
+    int32   m_exitAnimLoop;                                 // 27
+    int32   m_exitAnimEnd;                                  // 28
+    float   m_passengerYaw;                                 // 29
+    float   m_passengerPitch;                               // 30
+    float   m_passengerRoll;                                // 31
+    int32   m_passengerAttachmentID;                        // 32
+    int32   m_vehicleEnterAnim;                             // 33
+    int32   m_vehicleExitAnim;                              // 34
+    int32   m_vehicleRideAnimLoop;                          // 35
+    int32   m_vehicleEnterAnimBone;                         // 36
+    int32   m_vehicleExitAnimBone;                          // 37
+    int32   m_vehicleRideAnimLoopBone;                      // 38
+    float   m_vehicleEnterAnimDelay;                        // 39
+    float   m_vehicleExitAnimDelay;                         // 40
+    uint32  m_vehicleAbilityDisplay;                        // 41
+    uint32  m_enterUISoundID;                               // 42
+    uint32  m_exitUISoundID;                                // 43
+    int32   m_uiSkin;                                       // 44
+    uint32  m_flagsB;                                       // 45
+                                                            // 46-57 added in 3.1, floats mostly
+
+    bool CanEnterOrExit() const
+    {
+        return ((m_flags & VEHICLE_SEAT_FLAG_CAN_ENTER_OR_EXIT) != 0 ||
+                //If it has anmation for enter/ride, means it can be entered/exited by logic
+                (m_flags & (VEHICLE_SEAT_FLAG_HAS_LOWER_ANIM_FOR_ENTER | VEHICLE_SEAT_FLAG_HAS_LOWER_ANIM_FOR_RIDE)) != 0);
+    }
+    bool CanSwitchFromSeat() const { return m_flags & VEHICLE_SEAT_FLAG_CAN_SWITCH; }
+    bool IsUsableByOverride() const { return (m_flags & (VEHICLE_SEAT_FLAG_UNCONTROLLED | VEHICLE_SEAT_FLAG_UNK18)
+                                    || (m_flagsB & (VEHICLE_SEAT_FLAG_B_USABLE_FORCED | VEHICLE_SEAT_FLAG_B_USABLE_FORCED_2 |
+                                        VEHICLE_SEAT_FLAG_B_USABLE_FORCED_3 | VEHICLE_SEAT_FLAG_B_USABLE_FORCED_4))); }
+    bool IsEjectable() const { return m_flagsB & VEHICLE_SEAT_FLAG_B_EJECTABLE; }
 };
 
 struct WMOAreaTableEntry
@@ -1923,7 +2071,7 @@ struct WorldMapAreaEntry
     float   x2;                                             // 7
     int32   virtual_map_id;                                 // 8 -1 (map_id have correct map) other: virtual map where zone show (map_id - where zone in fact internally)
     // int32   dungeonMap_id;                               // 9 pointer to DungeonMap.dbc (owerride x1, x2, y1, y2 coordinates)
-    // uint32  someMapID;                                   // 10
+    // uint32  parentMapID;                                 // 10
 };
 
 #define MAX_WORLD_MAP_OVERLAY_AREA_IDX 4
@@ -2014,5 +2162,21 @@ struct TalentSpellPos
 
 typedef std::map<uint32, TalentSpellPos> TalentSpellPosMap;
 
+struct TaxiPathBySourceAndDestination
+{
+    TaxiPathBySourceAndDestination() : ID(0), price(0) {}
+    TaxiPathBySourceAndDestination(uint32 _id, uint32 _price) : ID(_id), price(_price) {}
+
+    uint32    ID;
+    uint32    price;
+};
+typedef std::map<uint32, TaxiPathBySourceAndDestination> TaxiPathSetForSource;
+typedef std::map<uint32, TaxiPathSetForSource> TaxiPathSetBySource;
+
+typedef std::vector<TaxiPathNodeEntry const*> TaxiPathNodeList;
+typedef std::vector<TaxiPathNodeList> TaxiPathNodesByPath;
+
+#define TaxiMaskSize 14
+typedef uint32 TaxiMask[TaxiMaskSize];
 #endif
 

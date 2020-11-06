@@ -8,7 +8,8 @@
 #include "ControlSessionMgr.h"
 #include "ClusterDefines.h"
 #include "ObjectMgr.h"
-#include "RoutingHelper.h" 
+#include "RoutingHelper.h"
+
 #include "WorldDatabaseRebase.h"
 #include "DatabaseRoutines.h"
 
@@ -29,7 +30,7 @@ void WorldDatabaseRebase::Begin()
 
     uint32 count = 0;
     do
-    {
+    { 
         ++count;
         Field* fields = result->Fetch();
         _CreatureGUIDs[fields[0].GetUInt32()] = count;
@@ -81,7 +82,7 @@ void WorldDatabaseRebase::RebaseCreatures()
 
         if (itr == _CreatureGUIDs.end())
             continue;
-
+         
         new_guid = itr->second;
 
         if (counter == 0)
@@ -124,7 +125,7 @@ void WorldDatabaseRebase::RebaseCreatureAddons()
 
         if (itr == _CreatureGUIDs.end())
             continue;
-
+         
         new_guid = itr->second;
 
         if (counter == 0)
@@ -160,7 +161,8 @@ void WorldDatabaseRebase::RebaseCreatureFormations()
 
     do
     {
-        Field* fields = result->Fetch();
+        Field* fields = result->Fetch(); 
+
         CreatureMap::const_iterator itr = _CreatureGUIDs.find(fields[0].GetUInt32());
         CreatureMap::const_iterator iter_two = _CreatureGUIDs.find(fields[1].GetUInt32());
         if (itr == _CreatureGUIDs.end() || iter_two == _CreatureGUIDs.end())

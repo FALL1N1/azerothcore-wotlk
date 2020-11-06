@@ -413,15 +413,14 @@ int Socket::handle_input(ACE_HANDLE)
             if ((errno == EWOULDBLOCK) || (errno == EAGAIN))
                 return IsClosing() ? -1 : 0;
 
-            sLog->outDebug(LOG_FILTER_NETWORKIO, "Socket::handle_input: Peer error closing connection errno = %s", ACE_OS::strerror(errno));
+            sLog->outString("Socket::handle_input: Peer error closing connection errno = %s", ACE_OS::strerror(errno));
 
             errno = ECONNRESET;
             return -1;
         }
         case 0:
         {
-            sLog->outDebug(LOG_FILTER_NETWORKIO, "Socket::handle_input: Peer has closed connection");
-
+            sLog->outString("Socket::handle_input: Peer has closed connection");
             errno = ECONNRESET;
             return -1;
         }

@@ -1,24 +1,24 @@
 #include "Common.h"
 #include "DatabaseEnv.h"
-#include "Config.h" 
+#include "Config.h"
 #include "Log.h"
 #include "ClientSessionMgr.h"
 #include "ClientSession.h"
-#include "RoutingHelper.h" 
+#include "RoutingHelper.h"  
 #include "DBCStores.h"
 #include "AccountMgr.h"
 
-#include "Logon.h"
-#include "AddonMgr.h"
-#include "ObjectMgr.h"
+#include "Logon.h" 
+#include "ObjectMgr.h" 
 
 #include "WorldPacket.h"
 #include "Opcodes.h"
 #include "ControlSessionMgr.h"
 #include "ControlSession.h"
-#include "DatabaseRoutines.h"  
- 
-#include "AutoBroadcast.h"
+#include "DatabaseRoutines.h" 
+
+//Caching 
+#include "Items.h"  
 
 #include <algorithm>
 #include <functional>
@@ -50,14 +50,12 @@ Logon::~Logon()
 /// Initialize config values
 void Logon::LoadConfigSettings(bool reload)
 {
-    /*if (reload)
-    {
-        if (!sConfigMgr->Load())
-        {
-            sLog->outError("Logon settings reload fail: can't read settings from %s.",sConfigMgr->GetFilename().c_str());
+    if (reload)
+        if (!sConfigMgr->Reload())
+        { 
+            sLog->outError("ProxyServer settings reload failed, we can't read settings from ...");
             return;
         }
-    }*/
 
     ///- Read the "Data" directory from the config file
     std::string dataPath = sConfigMgr->GetStringDefault("DataDir", "./");
@@ -75,7 +73,7 @@ void Logon::LoadConfigSettings(bool reload)
         sLog->outString("Using DataDir %s", m_dataPath.c_str());
     }
 
-    SetFakeMsg("Ich bin Keazy und stehe auf Blumenkohl.");
+    SetFakeMsg("");
 
     sClientSessionMgr->SetPlayerAmountLimit(sConfigMgr->GetIntDefault("PlayerLimit", 100));
 
@@ -87,9 +85,11 @@ void Logon::LoadConfigSettings(bool reload)
     }
     else
         m_int_configs[CONFIG_PORT_LOGON] = sConfigMgr->GetIntDefault("LogonServerPort", 8085);
-
+    
+    m_int_configs[CONFIG_BATTLEGROUND_INVITATION_TYPE] = sConfigMgr->GetIntDefault("DefaultBGInviteType", 1);
+    m_int_configs[CONFIG_GROUP_VISIBILITY] = sConfigMgr->GetIntDefault("Visibility.GroupMode", 1);
+    
     m_int_configs[CONFIG_SOCKET_TIMEOUTTIME] = sConfigMgr->GetIntDefault("SocketTimeOutTime", 900000);
-    m_int_configs[CONFIG_INTERVAL_DISCONNECT_TOLERANCE] = sConfigMgr->GetIntDefault("DisconnectToleranceInterval", 0);
     m_int_configs[CONFIG_MAX_OVERSPEED_PINGS] = sConfigMgr->GetIntDefault("MaxOverspeedPings",2);
     if (m_int_configs[CONFIG_MAX_OVERSPEED_PINGS] != 0 && m_int_configs[CONFIG_MAX_OVERSPEED_PINGS] < 2)
     {
@@ -214,11 +214,6 @@ void Logon::LoadConfigSettings(bool reload)
     // Misc
     m_bool_configs[CONFIG_DIE_COMMAND_MODE] = sConfigMgr->GetBoolDefault("Die.Command.Mode", true);
 
-    // AutoBroadcast
-    m_bool_configs[CONFIG_AUTOBROADCAST] = sConfigMgr->GetBoolDefault("AutoBroadcast.On", false);
-    m_int_configs[CONFIG_AUTOBROADCAST_CENTER] = sConfigMgr->GetIntDefault("AutoBroadcast.Center", 0);
-    m_int_configs[CONFIG_AUTOBROADCAST_INTERVAL] = sConfigMgr->GetIntDefault("AutoBroadcast.Timer", 60000);
-
     // Rates
     {
         rate_values[RATE_HEALTH]                        = sConfigMgr->GetFloatDefault("Rate.Health", 1);
@@ -303,22 +298,6 @@ void Logon::LoadConfigSettings(bool reload)
     }
 }
 
-void Logon::LoadDBVersion()
-{
-    QueryResult result = WorldDatabase.Query("SELECT db_version, cache_id FROM version LIMIT 1");
-    if (result)
-    {
-        Field* fields = result->Fetch();
-        m_DBVersion = fields[0].GetString();
-
-        // will be overwrite by config values if different and non-0
-        m_int_configs[CONFIG_CLIENTCACHE_VERSION] = fields[1].GetUInt32();
-    }
-
-    if (m_DBVersion.empty())
-        m_DBVersion = "Unknown world database.";
-}
-
 /// Initialize logonserver
 void Logon::SetInitialLogonSettings()
 {
@@ -328,12 +307,10 @@ void Logon::SetInitialLogonSettings()
     ///- Initialize the random number generator
     srand((unsigned int)time(NULL));
 
-    ///- Loading strings. Getting no records means core load has to be canceled because no error message can be output.
-    //sLog->outString();
-    //sLog->outString("Loading Trinity strings...");
-    //if (!sObjectMgr->LoadTrinityStrings())
-        //exit(1);                                            // Error message displayed in function already
-
+    sLog->outString();
+    sLog->outString("Deleting expired bans...");
+    LoginDatabase.Execute("DELETE FROM ip_banned WHERE unbandate <= UNIX_TIMESTAMP() AND unbandate<>bandate");      // One-time query
+ 
     //Update Realmlist
     uint32 server_type;
     if (IsFFAPvPRealm())
@@ -351,29 +328,22 @@ void Logon::SetInitialLogonSettings()
     //sGuidHolder->Initialize();
 
     ///- Load the DBC files
-    sLog->outString("Initialize data stores...");
     LoadDBCStores(m_dataPath);
-    DetectDBCLang(); 
-
-    sLog->outString("Loading client addons...");
-    sAddonMgr->LoadFromDB();
-      
-    sLog->outString("Loading LogonServer States...");              // must be loaded before battleground, outdoor PvP and conditions
+    DetectDBCLang();
+    
+    // Global Storage, should be loaded asap
+    sLog->outString("Loading Global Player Data...");
+    sLogon->LoadGlobalPlayerDataStore();
+     
+    sLog->outString();
+    sItems->WarmingCache();
+    sLog->outString(); 
     LoadLogonStates();
-
-    sLog->outString("Loading NodeList...");
     sRoutingHelper->LoadNodeList();
-    sLog->outString("Loading NodeMap...");
     sRoutingHelper->LoadNodeMap();
-    sLog->outString("Loading AntiSpam...");
     InitAntiSpam();
     sClientSessionMgr->Initialize();
 
-    //sLog->outString("Loading Autobroadcasts...");
-    //sAutoBroadcast.load();
-
-    ///- Initialize game time and timers
-    sLog->outString("Initialize game time and timers");
     m_gameTime = time(NULL);
     m_startTime=m_gameTime;
 
@@ -384,13 +354,11 @@ void Logon::SetInitialLogonSettings()
     char isoDate[128];
     sprintf(isoDate, "%04d-%02d-%02d %02d:%02d:%02d",
         local.tm_year+1900, local.tm_mon+1, local.tm_mday, local.tm_hour, local.tm_min, local.tm_sec);
- 
 
     m_timers[LUPDATE_UPTIME].SetInterval(m_int_configs[CONFIG_UPTIME_UPDATE]*MINUTE*IN_MILLISECONDS);
     m_timers[LUPDATE_PINGDB].SetInterval(getIntConfig(CONFIG_DB_PING_INTERVAL)*MINUTE*IN_MILLISECONDS);    // Mysql ping time in minutes
     m_timers[LUPDATE_RECONNECT].SetInterval((MINUTE*IN_MILLISECONDS)/2);
     m_timers[LUPDATE_BAN].SetInterval(5*MINUTE*IN_MILLISECONDS); // Update expired bans
-    m_timers[LUPDATE_AUTOBROADCAST].SetInterval(getIntConfig(CONFIG_AUTOBROADCAST_INTERVAL));
 
     //m_timers[LUPDATE_RECONNECT].SetInterval((IN_MILLISECONDS));
 
@@ -399,10 +367,8 @@ void Logon::SetInitialLogonSettings()
 
     uint32 startupDuration = GetMSTimeDiffToNow(startupBegin);
     sLog->outString();
-    sLog->outString("LOGON: Logon initialized in %u minutes %u seconds", (startupDuration / 60000), ((startupDuration % 60000) / 1000) );
-
-    time_t Timestamp; tm *now; Timestamp = time(0); now = localtime(&Timestamp);
-    sLog->outString("LOGON: %u:%u:%u", now->tm_hour, now->tm_min, now->tm_sec);
+    sLog->outString("Proxy Server initialized in %u minutes %u seconds", (startupDuration / 60000), ((startupDuration % 60000) / 1000) );
+    sLog->outString("We are now accepting connections."); 
     sLog->outString();
 }
 
@@ -440,7 +406,7 @@ void Logon::Update(uint32 diff)
         CharacterDatabase.KeepAlive();
         LogonDatabase.KeepAlive();
         LoginDatabase.KeepAlive();
-        WorldDatabase.KeepAlive(); 
+        WorldDatabase.KeepAlive();
     }
 
     /// <li> Update uptime table
@@ -461,7 +427,7 @@ void Logon::Update(uint32 diff)
         stmt->setUInt32(2, realmID);
         stmt->setUInt64(3, uint64(m_startTime));
 
-        LoginDatabase.Execute(stmt); 
+        LoginDatabase.Execute(stmt);
     }
 
     /// Update expired bans
@@ -473,16 +439,6 @@ void Logon::Update(uint32 diff)
         LoginDatabase.Execute(LoginDatabase.GetPreparedStatement(LOGIN_UPD_EXPIRED_ACCOUNT_BANS));
 
         m_timers[LUPDATE_BAN].Reset();
-    }
-
-    if (getBoolConfig(CONFIG_AUTOBROADCAST))
-    {
-        if (m_timers[LUPDATE_AUTOBROADCAST].Passed())
-        {
-            m_timers[LUPDATE_AUTOBROADCAST].Reset();
-            sAutoBroadcast.send();
-            //RecordTimeDiff("Autobroadcast");
-        }
     }
 
     sObjectMgr->Update();
@@ -555,7 +511,7 @@ void Logon::_UpdateGameTime()
         ///- ... and it is overdue, stop the world (set m_stopEvent)
         if (m_HaltTimer <= elapsed)
         {
-            LoginDatabase.DirectPExecute("UPDATE realmlist SET color = 2 WHERE id = '%d'", 2, 1, realmID);
+            LoginDatabase.DirectPExecute("UPDATE realmlist SET flag = 2 WHERE id = '%d'", 2, 1, realmID);
             m_HaltTimer = 0;
             m_haltEvent = true;
         }
@@ -648,21 +604,22 @@ void Logon::ProcessCliCommands()
     CliCommandHolder::Print* zprint = NULL;
     void* callbackArg = NULL;
     CliCommandHolder* command;
-    /*while (cliCmdQueue.next(command))
+    while (cliCmdQueue.next(command))
     {
         sLog->outDetail("CLI command under processing...");
         zprint = command->m_print;
         callbackArg = command->m_callbackArg;
-        CliHandler handler(callbackArg, zprint);
-        handler.ParseCommands(command->m_command);
-        if(command->m_commandFinished)
-            command->m_commandFinished(callbackArg, !handler.HasSentErrorMessage());
+        //CliHandler handler(callbackArg, zprint);
+        //handler.ParseCommands(command->m_command);
+        if (command->m_commandFinished)
+            ;// command->m_commandFinished(callbackArg, !handler.HasSentErrorMessage());
         delete command;
-    }*/
+    }
 }
 
 void Logon::DetectDBCLang()
 {
+    return;
     uint8 m_lang_confid = sConfigMgr->GetIntDefault("DBC.Locale", 255);
 
     if (m_lang_confid != 255 && m_lang_confid >= TOTAL_LOCALES)
@@ -764,215 +721,7 @@ uint64 Logon::getLogonState(uint32 index) const
     LogonStatesMap::const_iterator it = m_logonstates.find(index);
     return it != m_logonstates.end() ? it->second : 0;
 }
-
-//Bans
-/// Ban an account or ban an IP address, duration will be parsed using TimeStringToSecs if it is positive, otherwise permban
-BanReturn Logon::BanAccount(BanMode mode, std::string nameOrIP, std::string duration, std::string reason, std::string author)
-{
-    uint32 duration_secs = TimeStringToSecs(duration);
-    PreparedQueryResult resultAccounts = PreparedQueryResult(NULL); //used for kicking
-    PreparedStatement* stmt = NULL;
-
-    ///- Update the database with ban information
-    switch (mode)
-    {
-        case BAN_IP:
-            // No SQL injection with prepared statements
-            stmt = LoginDatabase.GetPreparedStatement(LOGIN_SEL_ACCOUNT_BY_IP);
-            stmt->setString(0, nameOrIP);
-            resultAccounts = LoginDatabase.Query(stmt);
-            stmt = LoginDatabase.GetPreparedStatement(LOGIN_INS_IP_BANNED);
-            stmt->setString(0, nameOrIP);
-            stmt->setUInt32(1, duration_secs);
-            stmt->setString(2, author);
-            stmt->setString(3, reason);
-            LoginDatabase.Execute(stmt);
-            break;
-        case BAN_ACCOUNT:
-            // No SQL injection with prepared statements
-            stmt = LoginDatabase.GetPreparedStatement(LOGIN_SEL_ACCOUNT_ID_BY_NAME);
-            stmt->setString(0, nameOrIP);
-            resultAccounts = LoginDatabase.Query(stmt);
-            break;
-        case BAN_CHARACTER:
-            // No SQL injection with prepared statements
-            stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_ACCOUNT_BY_NAME);
-            stmt->setString(0, nameOrIP);
-            resultAccounts = CharacterDatabase.Query(stmt);
-            break;
-        default:
-            return BAN_SYNTAX_ERROR;
-    }
-
-    if (!resultAccounts)
-    {
-        if (mode == BAN_IP)
-            return BAN_SUCCESS;                             // ip correctly banned but nobody affected (yet)
-        else
-            return BAN_NOTFOUND;                            // Nobody to ban
-    }
-
-    ///- Disconnect all affected players (for IP it can be several)
-    SQLTransaction trans = LoginDatabase.BeginTransaction();
-    do
-    {
-        Field* fieldsAccount = resultAccounts->Fetch();
-        uint32 account = fieldsAccount[0].GetUInt32();
-
-        if (mode != BAN_IP)
-        {
-            // make sure there is only one active ban
-            stmt = LoginDatabase.GetPreparedStatement(LOGIN_UPD_ACCOUNT_NOT_BANNED);
-            stmt->setUInt32(0, account);
-            trans->Append(stmt);
-            // No SQL injection with prepared statements
-            stmt = LoginDatabase.GetPreparedStatement(LOGIN_INS_ACCOUNT_BANNED);
-            stmt->setUInt32(0, account);
-            stmt->setUInt32(1, duration_secs);
-            stmt->setString(2, author);
-            stmt->setString(3, reason);
-            trans->Append(stmt);
-        }
-
-        if (ClientSession* sess = sClientSessionMgr->FindSession(account))
-            if (std::string(sess->GetPlayer()->GetPlayerName()) != author)
-                sess->KickPlayer();
-    } while (resultAccounts->NextRow());
-
-    LoginDatabase.CommitTransaction(trans);
-
-    return BAN_SUCCESS;
-}
-
-/// Ban an account or ban an IP address, duration will be parsed using TimeStringToSecs if it is positive, otherwise permban
-BanReturn Logon::BanAccountbyId(uint32 accountId, int32 duration, std::string reason, std::string author)
-{
-    PreparedStatement* stmt = NULL;
-
-    ///- Disconnect all affected players (for IP it can be several)
-    SQLTransaction trans = LoginDatabase.BeginTransaction();
-    // make sure there is only one active ban
-    stmt = LoginDatabase.GetPreparedStatement(LOGIN_UPD_ACCOUNT_NOT_BANNED);
-    stmt->setUInt32(0, accountId);
-    trans->Append(stmt);
-    // No SQL injection with prepared statements
-    stmt = LoginDatabase.GetPreparedStatement(LOGIN_INS_ACCOUNT_BANNED);
-    stmt->setUInt32(0, accountId);
-    stmt->setUInt32(1, duration);
-    stmt->setString(2, author);
-    stmt->setString(3, reason);
-    trans->Append(stmt);
-
-    if (ClientSession* sess = sClientSessionMgr->FindSession(accountId))
-        if (Player *plr = sess->GetPlayer())
-            if (std::string(plr->GetName()) != author)
-                sess->KickPlayer();
-
-    LoginDatabase.CommitTransaction(trans);
-
-    return BAN_SUCCESS;
-}
-
-/// Remove a ban from an account or IP address
-bool Logon::RemoveBanAccount(BanMode mode, std::string nameOrIP)
-{
-    PreparedStatement* stmt = NULL;
-    if (mode == BAN_IP)
-    {
-        stmt = LoginDatabase.GetPreparedStatement(LOGIN_DEL_IP_NOT_BANNED);
-        stmt->setString(0, nameOrIP);
-        LoginDatabase.Execute(stmt);
-    }
-    else
-    {
-        uint32 account = 0;
-        if (mode == BAN_ACCOUNT)
-            account = AccountMgr::GetId(nameOrIP);
-        else if (mode == BAN_CHARACTER)
-            account = sObjectMgr->FindPlayerByName(nameOrIP.c_str())->GetSession()->GetAccountId();
-
-        if (!account)
-            return false;
-
-        //NO SQL injection as account is uint32
-        stmt = LoginDatabase.GetPreparedStatement(LOGIN_UPD_ACCOUNT_NOT_BANNED);
-        stmt->setUInt32(0, account);
-        LoginDatabase.Execute(stmt);
-    }
-    return true;
-}
-
-/// Ban an account or ban an IP address, duration will be parsed using TimeStringToSecs if it is positive, otherwise permban
-BanReturn Logon::BanCharacter(std::string name, std::string duration, std::string reason, std::string author)
-{
-    Player* pBanned = sObjectMgr->FindPlayerByName(name.c_str());
-    uint32 guid = 0;
-
-    uint32 duration_secs = TimeStringToSecs(duration);
-
-    /// Pick a player to ban if not online
-    if (!pBanned)
-    {
-        PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_GUID_BY_NAME_FILTER); // CHAR_SEL_GUID_BY_NAME
-        stmt->setString(0, name);
-        PreparedQueryResult resultCharacter = CharacterDatabase.Query(stmt);
-
-        if (!resultCharacter)
-            return BAN_NOTFOUND;                                    // Nobody to ban
-
-        guid = (*resultCharacter)[0].GetUInt32();
-    }
-    else
-        guid = pBanned->GetGUIDLow();
-
-    // make sure there is only one active ban
-    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_CHARACTER_BAN);
-    stmt->setUInt32(0, guid);
-    CharacterDatabase.Execute(stmt);
-
-    stmt = CharacterDatabase.GetPreparedStatement(CHAR_INS_CHARACTER_BAN);
-    stmt->setUInt32(0, guid);
-    stmt->setUInt32(1, duration_secs);
-    stmt->setString(2, author);
-    stmt->setString(3, reason);
-    CharacterDatabase.Execute(stmt);
-
-    if (pBanned)
-        pBanned->GetSession()->KickPlayer();
-
-    return BAN_SUCCESS;
-}
-
-/// Remove a ban from a character
-bool Logon::RemoveBanCharacter(std::string name)
-{
-    Player* pBanned = sObjectMgr->FindPlayerByName(name.c_str());
-    uint32 guid = 0;
-
-    /// Pick a player to ban if not online
-    if (!pBanned)
-    {
-        PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_GUID_BY_NAME_FILTER); // CHAR_SEL_GUID_BY_NAME
-        stmt->setString(0, name);
-        PreparedQueryResult resultCharacter = CharacterDatabase.Query(stmt);
-
-        if (!resultCharacter)
-            return false;
-
-        guid = (*resultCharacter)[0].GetUInt32();
-    }
-    else
-        guid = pBanned->GetGUIDLow();
-
-    if (!guid)
-        return false;
-
-    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_CHARACTER_BAN);
-    stmt->setUInt32(0, guid);
-    CharacterDatabase.Execute(stmt);
-    return true;
-}
-
+ 
 void Logon::InitAntiSpam()
 {
     return;
@@ -1132,17 +881,181 @@ const char* Logon::GetFakeMsg() const
 }
 
 void Logon::Whisper(const std::string& text, uint32 language, Player* player)
+{ 
+}
+
+
+void Logon::LoadGlobalPlayerDataStore()
 {
-    if (!player)
+    uint32 oldMSTime = getMSTime();
+
+    _globalPlayerDataStore.clear();
+    QueryResult result = CharacterDatabase.Query("SELECT guid, account, name, gender, race, class, level FROM characters WHERE deleteDate IS NULL");
+    if (!result)
+    {
+        sLog->outString();
+        sLog->outErrorDb(">>  Loaded 0 Players data!");
         return;
-    WorldPacket data(SMSG_MESSAGECHAT, 200);
-    data << uint8(CHAT_MSG_WHISPER_INFORM);
-    data << uint32(language);
-    data << uint64(657);
-    data << uint32(language);                               //language 2.1.0 ?
-    data << uint64(657);
-    data << uint32(text.length() + 1);
-    data << text;
-    data << uint8(0);
-    player->GetSession()->SendPacket(&data);
+    }
+
+    uint32 count = 0;
+
+    // query to load number of mails by receiver
+    std::map<uint32, uint16> _mailCountMap;
+    QueryResult mailCountResult = CharacterDatabase.Query("SELECT receiver, COUNT(receiver) FROM mail GROUP BY receiver");
+    if (mailCountResult)
+    {
+        do
+        {
+            Field* fields = mailCountResult->Fetch();
+            _mailCountMap[fields[0].GetUInt32()] = uint16(fields[1].GetUInt64());
+        }
+        while (mailCountResult->NextRow());
+    }
+
+    do
+    {
+        Field* fields = result->Fetch();
+        uint32 guidLow = fields[0].GetUInt32();
+
+        // count mails
+        uint16 mailCount = 0;
+        std::map<uint32, uint16>::const_iterator itr = _mailCountMap.find(guidLow);
+        if (itr != _mailCountMap.end())
+            mailCount = itr->second;
+
+        AddGlobalPlayerData(
+            guidLow,               /*guid*/
+            fields[1].GetUInt32(), /*accountId*/
+            fields[2].GetString(), /*name*/
+            fields[3].GetUInt8(),  /*gender*/
+            fields[4].GetUInt8(),  /*race*/
+            fields[5].GetUInt8(),  /*class*/
+            fields[6].GetUInt8(),  /*level*/
+            mailCount,             /*mail count*/
+            0                      /*guild id*/);
+
+        ++count;
+    }
+    while (result->NextRow());
+
+    sLog->outString(">> Loaded %d Players data in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
+    sLog->outString();
+}
+
+void Logon::AddGlobalPlayerData(uint32 guid, uint32 accountId, std::string const& name, uint8 gender, uint8 race, uint8 playerClass, uint8 level, uint16 mailCount, uint32 guildId)
+{
+    GlobalPlayerData data;
+
+    data.guidLow = guid;
+    data.accountId = accountId;
+    data.name = name;
+    data.level = level;
+    data.race = race;
+    data.playerClass = playerClass;
+    data.gender = gender;
+    data.mailCount = mailCount;
+    data.guildId = guildId;
+    data.groupId = 0;
+    data.arenaTeamId[0] = 0;
+    data.arenaTeamId[1] = 0;
+    data.arenaTeamId[2] = 0;
+
+    _globalPlayerDataStore[guid] = data;
+    _globalPlayerNameStore[name] = guid;
+}
+
+void Logon::UpdateGlobalPlayerData(uint32 guid, uint8 mask, std::string const& name, uint8 level, uint8 gender, uint8 race, uint8 playerClass)
+{
+    GlobalPlayerDataMap::iterator itr = _globalPlayerDataStore.find(guid);
+    if (itr == _globalPlayerDataStore.end())
+        return;
+
+    if (mask & PLAYER_UPDATE_DATA_LEVEL)
+        itr->second.level = level;
+    if (mask & PLAYER_UPDATE_DATA_RACE)
+        itr->second.race = race;
+    if (mask & PLAYER_UPDATE_DATA_CLASS)
+        itr->second.playerClass = playerClass;
+    if (mask & PLAYER_UPDATE_DATA_GENDER)
+        itr->second.gender = gender;
+    if (mask & PLAYER_UPDATE_DATA_NAME)
+        itr->second.name = name;
+
+    WorldPacket data(SMSG_INVALIDATE_PLAYER, 8);
+    data << MAKE_NEW_GUID(guid, 0, HIGHGUID_PLAYER); 
+}
+
+void Logon::UpdateGlobalPlayerMails(uint32 guid, int16 count, bool add)
+{
+    GlobalPlayerDataMap::iterator itr = _globalPlayerDataStore.find(guid);
+    if (itr == _globalPlayerDataStore.end())
+        return;
+
+    if (!add)
+    {
+        itr->second.mailCount = count;
+        return;
+    }
+
+    int16 icount = (int16)itr->second.mailCount;
+    if (count < 0 && abs(count) > icount)
+        count = -icount;
+    itr->second.mailCount = uint16(icount + count); // addition or subtraction
+}
+
+void Logon::UpdateGlobalPlayerGuild(uint32 guid, uint32 guildId)
+{
+    GlobalPlayerDataMap::iterator itr = _globalPlayerDataStore.find(guid);
+    if (itr == _globalPlayerDataStore.end())
+        return;
+
+    itr->second.guildId = guildId;
+}
+void Logon::UpdateGlobalPlayerGroup(uint32 guid, uint32 groupId)
+{
+    GlobalPlayerDataMap::iterator itr = _globalPlayerDataStore.find(guid);
+    if (itr == _globalPlayerDataStore.end())
+        return;
+
+    itr->second.groupId = groupId;
+}
+
+void Logon::UpdateGlobalPlayerArenaTeam(uint32 guid, uint8 slot, uint32 arenaTeamId)
+{
+    GlobalPlayerDataMap::iterator itr = _globalPlayerDataStore.find(guid);
+    if (itr == _globalPlayerDataStore.end())
+        return;
+
+    itr->second.arenaTeamId[slot] = arenaTeamId;
+}
+
+void Logon::UpdateGlobalNameData(uint32 guidLow, std::string const& oldName, std::string const& newName)
+{
+    _globalPlayerNameStore.erase(oldName);
+    _globalPlayerNameStore[newName] = guidLow;
+}
+
+void Logon::DeleteGlobalPlayerData(uint32 guid, std::string const& name)
+{
+    if (guid)
+        _globalPlayerDataStore.erase(guid);
+    if (!name.empty())
+        _globalPlayerNameStore.erase(name);
+}
+
+GlobalPlayerData const* Logon::GetGlobalPlayerData(uint32 guid) const
+{
+    GlobalPlayerDataMap::const_iterator itr = _globalPlayerDataStore.find(guid);
+    if (itr != _globalPlayerDataStore.end())
+        return &itr->second;
+    return NULL;
+}
+
+uint32 Logon::GetGlobalPlayerGUID(std::string const& name) const
+{
+    GlobalPlayerNameMap::const_iterator itr = _globalPlayerNameStore.find(name);
+    if (itr != _globalPlayerNameStore.end())
+        return itr->second;
+    return 0;
 }

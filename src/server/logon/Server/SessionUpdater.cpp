@@ -17,10 +17,6 @@
 #include <ace/os_include/sys/os_types.h>
 #include <ace/os_include/sys/os_socket.h>
 
-#include "Timer.h"
-
-#define LOGON_SESSION_SLEEP_CONST 5000 //micro-seconds
-
 SessionUpdater::SessionUpdater() :
     m_Counter(0),
     m_ThreadId(-1)
@@ -94,18 +90,17 @@ inline uint32 getUSTimeDiff(uint32 oldUSTime, uint32 newUSTime)
         return newUSTime - oldUSTime;
 }
 
+#define LOGON_SESSION_SLEEP_CONST 5000 //micro-seconds
 
 int SessionUpdater::svc()
 {
     uint32 realCurrTime = 0;
     uint32 realPrevTime = getUSTime();
 
-    uint32 prevSleepTime = 0;
-
-    sLog->outStaticDebug("ClientUpdate Thread Starting");
+    uint32 prevSleepTime = 0; 
 
     while (!_stop)
-    {
+    { 
         realCurrTime = getUSTime();
         uint32 diff = getUSTimeDiff(realPrevTime, realCurrTime);
 

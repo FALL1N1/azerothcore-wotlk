@@ -1,7 +1,7 @@
 #include "ClientSocket.h"
 #include "NodeSocket.h"
 #include "RoutingHelper.h"
-
+#include "Defines.h"
 #include "ObjectMgr.h"
 #include "Player.h"
 
@@ -12,7 +12,7 @@
 #include "Common.h"
 #include "Log.h"
 #include "zlib.h"
-#include "SocialMgr.h"
+#include "SocialMgr.h" 
 
 #include "ClusterDefines.h"
 
@@ -26,7 +26,7 @@ _sessionDbLocaleIndex(locale), _nodeId(0), _player(NULL), m_loginDelay(0), m_DoS
     _NodeSocket = NULL;
     _sessionflags = 0;
     _authed = true;
-    _callback_timer = 50000;
+    _callback_timer = 5000;
     _clientaddress = "";
     if (sock)
     {
@@ -34,13 +34,13 @@ _sessionDbLocaleIndex(locale), _nodeId(0), _player(NULL), m_loginDelay(0), m_DoS
         sock->add_reference();
         LoginDatabase.PExecute("UPDATE account SET online = 1 WHERE id = %u;", GetAccountId());
     }
-
+    //sLog->outString("[1] _nodeId: %u", _nodeId);
     _nodeId = sRoutingHelper->ConnectToMaster();
     if (_nodeId == 0)
         _reconnect_timer = 2000000;
     else
         _reconnect_timer = 100000; //Set the reconnect Timer
-
+    //sLog->outString("[2] _nodeId: %u", _nodeId);
     SetFlag(FLAG_ACCOUNT_RECONNECT); //Die Verbindung baut nun der Reconnect auf
 }
 
@@ -169,7 +169,97 @@ void ClientSession::SetAccountData(AccountDataType type, time_t tm, std::string 
     _accountData[type].Data = data;
 }
 
- 
+
+/*********************************************************/
+/***                     ADDON                         ***/
+/*********************************************************/
+void ClientSession::ReadAddonsInfo(WorldPacket &data)
+{
+    if (data.rpos() + 4 > data.size())
+        return;
+    uint32 size;
+    data >> size;
+
+    if (!size)
+        return;
+
+    if (size > 0xFFFFF)
+    {
+        sLog->outError("WorldSession::ReadAddonsInfo addon info too big, size %u", size);
+        return;
+    }
+
+    uLongf uSize = size;
+
+    uint32 pos = data.rpos();
+
+    ByteBuffer addonInfo;
+    addonInfo.resize(size);
+
+    if (uncompress(const_cast<uint8 *>(addonInfo.contents()), &uSize, const_cast<uint8 *>(data.contents() + pos), data.size() - pos) == Z_OK)
+    {
+        uint32 addonsCount;
+        addonInfo >> addonsCount;                         // addons count
+
+        for (uint32 i = 0; i < addonsCount; ++i)
+        {
+            std::string addonName;
+            uint8 enabled;
+            uint32 crc, unk1;
+
+            // check next addon data format correctness
+            if (addonInfo.rpos() + 1 > addonInfo.size())
+                return;
+
+            addonInfo >> addonName;
+
+            addonInfo >> enabled >> crc >> unk1;
+
+            sLog->outDetail("ADDON: Name: %s, Enabled: 0x%x, CRC: 0x%x, Unknown2: 0x%x", addonName.c_str(), enabled, crc, unk1);
+        }
+
+        uint32 currentTime;
+        addonInfo >> currentTime;
+        //sLog->outString("ADDON: CurrentTime: %u", currentTime);
+
+        if (addonInfo.rpos() != addonInfo.size())
+            sLog->outString("packet under-read!");
+    }
+    else
+        sLog->outError("Addon packet uncompress error!");
+}
+
+void ClientSession::SendAddonsInfo()
+{
+    uint8 addonPublicKey[256] =
+    {
+        0xC3, 0x5B, 0x50, 0x84, 0xB9, 0x3E, 0x32, 0x42, 0x8C, 0xD0, 0xC7, 0x48, 0xFA, 0x0E, 0x5D, 0x54,
+        0x5A, 0xA3, 0x0E, 0x14, 0xBA, 0x9E, 0x0D, 0xB9, 0x5D, 0x8B, 0xEE, 0xB6, 0x84, 0x93, 0x45, 0x75,
+        0xFF, 0x31, 0xFE, 0x2F, 0x64, 0x3F, 0x3D, 0x6D, 0x07, 0xD9, 0x44, 0x9B, 0x40, 0x85, 0x59, 0x34,
+        0x4E, 0x10, 0xE1, 0xE7, 0x43, 0x69, 0xEF, 0x7C, 0x16, 0xFC, 0xB4, 0xED, 0x1B, 0x95, 0x28, 0xA8,
+        0x23, 0x76, 0x51, 0x31, 0x57, 0x30, 0x2B, 0x79, 0x08, 0x50, 0x10, 0x1C, 0x4A, 0x1A, 0x2C, 0xC8,
+        0x8B, 0x8F, 0x05, 0x2D, 0x22, 0x3D, 0xDB, 0x5A, 0x24, 0x7A, 0x0F, 0x13, 0x50, 0x37, 0x8F, 0x5A,
+        0xCC, 0x9E, 0x04, 0x44, 0x0E, 0x87, 0x01, 0xD4, 0xA3, 0x15, 0x94, 0x16, 0x34, 0xC6, 0xC2, 0xC3,
+        0xFB, 0x49, 0xFE, 0xE1, 0xF9, 0xDA, 0x8C, 0x50, 0x3C, 0xBE, 0x2C, 0xBB, 0x57, 0xED, 0x46, 0xB9,
+        0xAD, 0x8B, 0xC6, 0xDF, 0x0E, 0xD6, 0x0F, 0xBE, 0x80, 0xB3, 0x8B, 0x1E, 0x77, 0xCF, 0xAD, 0x22,
+        0xCF, 0xB7, 0x4B, 0xCF, 0xFB, 0xF0, 0x6B, 0x11, 0x45, 0x2D, 0x7A, 0x81, 0x18, 0xF2, 0x92, 0x7E,
+        0x98, 0x56, 0x5D, 0x5E, 0x69, 0x72, 0x0A, 0x0D, 0x03, 0x0A, 0x85, 0xA2, 0x85, 0x9C, 0xCB, 0xFB,
+        0x56, 0x6E, 0x8F, 0x44, 0xBB, 0x8F, 0x02, 0x22, 0x68, 0x63, 0x97, 0xBC, 0x85, 0xBA, 0xA8, 0xF7,
+        0xB5, 0x40, 0x68, 0x3C, 0x77, 0x86, 0x6F, 0x4B, 0xD7, 0x88, 0xCA, 0x8A, 0xD7, 0xCE, 0x36, 0xF0,
+        0x45, 0x6E, 0xD5, 0x64, 0x79, 0x0F, 0x17, 0xFC, 0x64, 0xDD, 0x10, 0x6F, 0xF3, 0xF5, 0xE0, 0xA6,
+        0xC3, 0xFB, 0x1B, 0x8C, 0x29, 0xEF, 0x8E, 0xE5, 0x34, 0xCB, 0xD1, 0x2A, 0xCE, 0x79, 0xC3, 0x9A,
+        0x0D, 0x36, 0xEA, 0x01, 0xE0, 0xAA, 0x91, 0x20, 0x54, 0xF0, 0x72, 0xD8, 0x1E, 0xC7, 0x89, 0xD2
+    };
+
+    WorldPacket data(SMSG_ADDON_INFO, 4);
+     
+
+    data << uint32(0); // count for an unknown for loop
+
+    SendPacket(&data);
+}
+
+
 /*********************************************************/
 /***                  I/O HANDLING                     ***/
 /*********************************************************/
@@ -192,7 +282,7 @@ void ClientSession::HandlePacket(WorldPacket *packet, uint16 opcode, uint8 proce
         {
             if (sLog->IsOutDebug())
             {
-                sLog->outDebug(LOG_FILTER_NETWORKIO, "Dumping error causing packet:");
+                sLog->outString("Dumping error causing packet:");
                 packet->hexlike();
             }
         }
@@ -234,9 +324,9 @@ void ClientSession::UpdateSingleClientIO(uint32 diff)
     WorldPacket* packet = NULL;
     uint32 packet_count = 0;
 
-#define MAX_COUNT 25
+//#define MAX_COUNT 25
 
-    while (packet_count++ < MAX_COUNT && _ClientSocket && _ClientSocket->GetNextSinglePacket(packet))
+    while (/*packet_count++ < MAX_COUNT && */_ClientSocket && _ClientSocket->GetNextSinglePacket(packet))
     {
         if (packet->GetOpcode() < NUM_MSG_TYPES)
         {
@@ -266,7 +356,7 @@ void ClientSession::UpdateSingleClientIO(uint32 diff)
         delete packet;
     }
 
-#undef MAX_COUNT
+//#undef MAX_COUNT
 }
 
 bool ClientSession::UpdateSingle(uint32 diff)
@@ -289,7 +379,7 @@ void ClientSession::UpdateMultiNodeIO(uint32 diff)
 
     while (_NodeSocket && _NodeSocket->GetNextMultiPacket(packet))
     {
-        sLog->outDebug(LOG_FILTER_NETWORKIO, "SESSION_NODE: Received opcode 0x%.4X (%s)", packet->GetOpcode(), LookupOpcodeName(packet->GetOpcode()));
+        //sLog->outString("SESSION_NODE: Received opcode 0x%.4X (%s)", packet->GetOpcode(), LookupOpcodeName(packet->GetOpcode()));
 
         if (packet->GetOpcode() < NUM_MSG_TYPES)
         {
@@ -318,13 +408,13 @@ void ClientSession::UpdateMultiNodeIO(uint32 diff)
 void ClientSession::UpdateMultiClientIO(uint32 diff)
 {
     WorldPacket* packet;
-    uint32 packet_count = 0;
+    //uint32 packet_count = 0;
+    //sLog->outString("PACKETS SENT");
+//#define MAX_COUNT 1000
 
-#define MAX_COUNT 50
-
-    while (++packet_count < MAX_COUNT && _ClientSocket && _ClientSocket->GetNextMultiPacket(packet))
+    while (/*++packet_count < MAX_COUNT && */_ClientSocket && _ClientSocket->GetNextMultiPacket(packet))
     {
-        sLog->outDebug(LOG_FILTER_NETWORKIO, "SESSION_CLIENT: Received opcode 0x%.4X (%s)", packet->GetOpcode(), LookupOpcodeName(packet->GetOpcode()));
+        //sLog->outString("SESSION_CLIENT: Received opcode 0x%.4X (%s)", packet->GetOpcode(), LookupOpcodeName(packet->GetOpcode()));
 
         if (packet->GetOpcode() < NUM_MSG_TYPES)
         {
@@ -353,21 +443,13 @@ void ClientSession::UpdateMultiClientIO(uint32 diff)
 
         delete packet;
     }
-#undef MAX_COUNT
+//#undef MAX_COUNT
 }
 
 bool ClientSession::UpdateMulti(uint32 diff)
 {
     if (HasFlag(FLAG_ACCOUNT_KICKED))
-        return false;
-
-    if (m_loginDelay)
-    {
-        if (m_loginDelay < diff)
-            m_loginDelay = 0;
-        else
-            m_loginDelay -= diff;
-    }
+        return false; 
 
     if (_ClientSocket && _ClientSocket->GetLastActionTime() > (time(NULL) + sLogon->getIntConfig(CONFIG_SOCKET_TIMEOUTTIME)))
         KickPlayer();
@@ -382,16 +464,19 @@ bool ClientSession::UpdateMulti(uint32 diff)
 
     if (HasFlag(FLAG_ACCOUNT_RECONNECT))
     {
-        if (_reconnect_timer > diff)
-            _reconnect_timer -= diff;
-        else
-        {
-            if (_nodeId == 0)
+       if (_reconnect_timer > diff)
+           _reconnect_timer -= diff;
+       else
+       {
+            if (_nodeId == 0) {
                 _nodeId = sRoutingHelper->ConnectToMaster();
+                sLog->outString("Connection to master node (%u) failed, trying to reconnect...", _nodeId);
+            } 
             else if (sRoutingHelper->CanEnterNodeID(_nodeId))
             {
-                if (NodeSocket *socket = sNodeSocketConnector->OpenConnection(_nodeId, "127.0.0.1"))
+                if (NodeSocket* socket = sNodeSocketConnector->OpenNodeConnection(_nodeId))
                 {
+                    sLog->outString("Node(%u) connected successfully.", _nodeId);
                     socket->add_reference();
                     _NodeSocket = socket;
 
@@ -401,8 +486,8 @@ bool ClientSession::UpdateMulti(uint32 diff)
                 }
             }
 
-            _reconnect_timer = 2000000;
-        }
+            _reconnect_timer = 5000000;
+       }
     }
 
     UpdateMultiNodeIO(diff);
@@ -421,6 +506,7 @@ bool ClientSession::UpdateMulti(uint32 diff)
     }
 
     UpdateMultiClientIO(diff);
+    //m_Warden->Update();
 
     if (_ClientSocket && _ClientSocket->IsClosing())
     {
@@ -451,8 +537,8 @@ void ClientSession::SendPacket(WorldPacket const* packet)
 {
     if (!_ClientSocket)
         return;
-
-#ifdef TRINITY_DEBUG
+    
+    // can be used for the statistics page in the website, let's do that!
 
     // Code for network use statistic
     static uint64 sendPacketCount = 0;
@@ -478,22 +564,33 @@ void ClientSession::SendPacket(WorldPacket const* packet)
     {
         uint64 minTime = uint64(cur_time - lastTime);
         uint64 fullTime = uint64(lastTime - firstTime);
-        sLog->outDetail("Send all time packets count: " UI64FMTD " bytes: " UI64FMTD " avr.count/sec: %f avr.bytes/sec: %f time: %u",sendPacketCount,sendPacketBytes,float(sendPacketCount)/fullTime,float(sendPacketBytes)/fullTime,uint32(fullTime));
-        sLog->outDetail("Send last min packets count: " UI64FMTD " bytes: " UI64FMTD " avr.count/sec: %f avr.bytes/sec: %f",sendLastPacketCount,sendLastPacketBytes,float(sendLastPacketCount)/minTime,float(sendLastPacketBytes)/minTime);
-
+        sLog->outString("Send all time packets count: " UI64FMTD " bytes: " UI64FMTD " avr.count/sec: %f avr.bytes/sec: %f time: %u",
+            sendPacketCount,sendPacketBytes,float(sendPacketCount)/fullTime,float(sendPacketBytes)/fullTime,uint32(fullTime));
+        sLog->outString("Send last min packets count: " UI64FMTD " bytes: " UI64FMTD " avr.count/sec: %f avr.bytes/sec: %f",
+            sendLastPacketCount,sendLastPacketBytes,float(sendLastPacketCount)/minTime,float(sendLastPacketBytes)/minTime);
+        
+        // update our db data
+        //LogonDatabase.PQuery("REPLACE INTO node_statistics (nodeid, packetcount, bytes, pps, bs) VALUES (%u, %u, %u, %f, %f)",
+            //realmID, sendLastPacketCount, sendLastPacketBytes, abs(float(sendLastPacketCount) / minTime), abs(float(sendLastPacketBytes) / minTime));
+        
+        
         lastTime = cur_time;
         sendLastPacketCount = 1;
         sendLastPacketBytes = packet->wpos();               // wpos is real written size
     }
+                                                // !TRINITY_DEBUG
 
-#endif                                                  // !TRINITY_DEBUG
+    if (packet->GetOpcode() == CMSG_MESSAGECHAT)
+        sLog->outString("[SENT PACKET]: Received opcode 0x%.4X (%s)", packet->GetOpcode(), LookupOpcodeName(packet->GetOpcode()));
 
     if (_ClientSocket->SendPacket(*packet) == -1)
         CloseSocket();
 }
-
 void ClientSession::SendPacketToNode(WorldPacket const* packet)
 {
+    if(packet->GetOpcode() == CMSG_MESSAGECHAT)
+        sLog->outString("[SENT PACKET TO NODE]: Received opcode 0x%.4X (%s)", packet->GetOpcode(), LookupOpcodeName(packet->GetOpcode()));
+
     if (!_NodeSocket)
         return;
 
@@ -501,8 +598,10 @@ void ClientSession::SendPacketToNode(WorldPacket const* packet)
         CloseSubSocket();
 }
 
+
 void ClientSession::SendAuthWaitQue(uint32 position)
 {
+    // @todo
     if (position == 0)
     {
         WorldPacket packet(SMSG_AUTH_RESPONSE, 1);
@@ -521,6 +620,7 @@ void ClientSession::SendAuthWaitQue(uint32 position)
 
 void ClientSession::SendCommandStringToNode(const char *args, ...)
 {
+    // @todo
     if (args)
     {
         va_list ap;
@@ -531,8 +631,8 @@ void ClientSession::SendCommandStringToNode(const char *args, ...)
         va_end(ap);
 
         WorldPacket packet(CMSG_MESSAGECHAT);
-        packet << uint32(CHAT_MSG_SAY);
-        packet << uint32(LANG_UNIVERSAL);
+        //packet << uint32(CHAT_MSG_SAY);
+        //packet << uint32(LANG_UNIVERSAL);
         packet << szStr;
         SendPacketToNode(&packet);
     }
@@ -619,16 +719,14 @@ void ClientSession::ProcessQueryCallbacks()
         //- HandleCharAddIgnoreOpcode
         if (_addIgnoreCallback.ready())
         {
-            _addIgnoreCallback.get(result);
-            HandleAddIgnoreOpcodeCallBack(result);
+            _addIgnoreCallback.get(result); 
             _addIgnoreCallback.cancel();
         }
         //! HandleAddFriendOpcode
         if (_addFriendCallback.IsReady())
         {
             std::string param = _addFriendCallback.GetParam();
-            _addFriendCallback.GetResult(result);
-            HandleAddFriendOpcodeCallBack(result, param);
+            _addFriendCallback.GetResult(result); 
             _addFriendCallback.FreeResult();
         }
     }
@@ -730,26 +828,38 @@ void ClientSession::Handle_NULL(WorldPacket &recv_data)
 {}
 
 void ClientSession::Handle_ServerSide(WorldPacket &recv_data)
-{} 
+{}
+
+const char *ClientSession::GetTrinityString(int32 entry) const
+{
+    return "";
+}
+
+void ClientSession::SendServerMessageToPlayer(Player* player, const char* msg)
+{
+    if (!player)
+        return;
+
+    uint32 messageLength = (msg ? strlen(msg) : 0) + 1;
+    WorldPacket data(SMSG_MESSAGECHAT, 100);
+    //data << uint8(CHAT_MSG_SYSTEM);
+    //data << uint32(LANG_UNIVERSAL);
+    data << uint64(0);
+    data << uint32(0);
+    data << uint64(0);
+    data << uint32(messageLength);
+    data << msg;
+    data << uint8(0);
+    SendPacket(&data);
+}
 
 void ClientSession::SetStunned(bool apply)
 {
     if (apply)
     {
         if (GetPlayer())
-        {
-            const char *message = "Der World-Server ist zur Zeit nicht erreichbar, bitte gedulde dich einen kurzen Moment.";
-            uint32 messageLength = (message ? strlen(message) : 0) + 1;
-            WorldPacket data(SMSG_MESSAGECHAT, 100);
-            data << uint8(CHAT_MSG_SYSTEM);
-            data << uint32(LANG_UNIVERSAL);
-            data << uint64(0);
-            data << uint32(0);
-            data << uint64(0);
-            data << uint32(messageLength);
-            data << message;
-            data << uint8(0);
-            SendPacket(&data);
+        { 
+            SendServerMessageToPlayer(GetPlayer(), "|cffFF0000ALERT:|r We have lost connection to the node, please wait till we reconnect...");
             WorldPacket data2(SMSG_FORCE_MOVE_ROOT, 8);
             data2.append(GetPlayer()->GetPackGUID());
             data2 << uint32(0);
@@ -759,7 +869,8 @@ void ClientSession::SetStunned(bool apply)
     else
     {
         if (GetPlayer())
-        {
+        { 
+            SendServerMessageToPlayer(GetPlayer(), "|cff00FF00ALERT:|r Reconnected to the node successfully.");
             WorldPacket data(SMSG_FORCE_MOVE_UNROOT, 8+4);
             data.append(GetPlayer()->GetPackGUID());
             data << uint32(0);
@@ -772,8 +883,8 @@ void ClientSession::SendFakeChatNotification(uint8 type, std::string msg, uint32
 {
     WorldPacket data(SMSG_MESSAGECHAT, 200);
 
-    if (type == CHAT_MSG_WHISPER)
-        type = CHAT_MSG_WHISPER_INFORM;
+    //if (type == CHAT_MSG_WHISPER)
+        //type = CHAT_MSG_WHISPER_INFORM;
 
     GetPlayer()->BuildPlayerChat(&data, type, msg, lang);
     SendPacket(&data);
@@ -782,7 +893,7 @@ void ClientSession::SendFakeChatNotification(uint8 type, std::string msg, uint32
 void ClientSession::SendFakeChannelNotification(std::string channel, std::string msg, uint32 lang)
 {
     WorldPacket data(SMSG_MESSAGECHAT, 200);
-    data << uint8(CHAT_MSG_CHANNEL);
+    //data << uint8(CHAT_MSG_CHANNEL);
     data << uint32(lang);
     data << uint64(GetPlayer()->GetGUID());     // 2.1.0
     data << uint32(0);                          // 2.1.0
@@ -826,4 +937,48 @@ void ClientSession::Handle_SMSG_AUTH_CHALLENGE(WorldPacket& recvPacket)
         RemoveFlag(FLAG_FORCE_TELEPORT);
 
     SendPacketToNode(&packet);
+}
+
+void ClientSession::SendToNode(uint32 n, uint32 m)
+{
+    std::string s = "|cffcc0066][Clustering][ |cffb3ffffYou have been moved to node:|r ";
+    s += "|cff";
+    switch(n)
+    {
+        case 1:
+            s += "3abec5";
+            s += "Capital Cities Node (master node)";
+            break;
+        case 2:
+            s += "3abec5";
+            s += "Eastern Kingdoms Node (map node [1])";
+            break;
+        case 3:
+            s += "3abec5";
+            s += "Kalimdor Node (map node [1])";
+            break;
+        case 4:
+            s += "3abec5";
+            s += "Outland Node (map node [1])";
+            break;
+        case 5:
+            s += "3abec5";
+            s += "Northrend Node (map node [1])";
+            break;
+        case 6:
+            s += "3abec5";
+            s += "PvE Node (raids/dungeons) (map node [1])";
+            break;
+        case 7:
+            s += "3abec5";
+            s += "PvP Node (battlegrounds/arenas) (map node [1])";
+            break;
+        default:
+            s += "ff0000 +error+ ";
+            break;
+    }
+    s += "|r";
+
+    const char* rslt = s.c_str();
+    SendServerMessageToPlayer(GetPlayer(), rslt);
 }

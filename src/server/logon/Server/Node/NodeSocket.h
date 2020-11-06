@@ -27,9 +27,9 @@ public:
     NodeSocket();
 
 private:
-    virtual int _sendPacket(const WorldPacket& pct);
+    virtual int _sendPacket(const WorldPacket &pct);
     virtual int _handleInputHeader();
-    virtual int _processIncoming(WorldPacket* new_pct);
+    virtual int _processIncoming(WorldPacket *new_pct);
 
     AuthCrypt _crypt;
     uint32 _seed;
@@ -46,9 +46,9 @@ public:
             //sLog->outString("CheckNodeID(%u)", nodeID);
             NodeList nodeInfo = sRoutingHelper->GetNodeConnectionData(nodeID);
             //sLog->outString("CheckNodeID(%u), nodeInfo(%u), nodeInfo(%s)", nodeID, nodeInfo.port, nodeInfo.IP);
-            return SocketConnector<NodeSocket>::OpenConnection(nodeInfo.port, nodeInfo.IP);
+                return SocketConnector<NodeSocket>::OpenConnection(nodeInfo.port, nodeInfo.IP);
         }
-
+        
         return 0;
     }
 };

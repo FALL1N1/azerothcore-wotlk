@@ -1,6 +1,6 @@
 #include "ControlSocket.h"
 #include "RoutingHelper.h"
-
+#include "Defines.h"
 #include "ObjectMgr.h"
 #include "Player.h"
 
@@ -94,7 +94,7 @@ void ControlSession::HandlePacket(WorldPacket *packet)
 {
     sLog->outDetail("SESSION_CTRL: Received opcode 0x%.4X (%s)", packet->GetOpcode(), LookupOpcodeName(packet->GetOpcode()));
 
-    //sLog->outDebug(LOG_FILTER_NETWORKIO, "SESSION_NODE: Received opcode 0x%.4X (%s)", packet->GetOpcode(), LookupOpcodeName(packet->GetOpcode()));
+    //sLog->outString("SESSION_NODE: Received opcode 0x%.4X (%s)", packet->GetOpcode(), LookupOpcodeName(packet->GetOpcode()));
     if (packet->GetOpcode() >= NUM_MSG_TYPES)
     {
         sLog->outError("SESSION_NODE: received non-existed opcode %s (0x%.4X)",
@@ -129,7 +129,7 @@ void ControlSession::HandlePacket(WorldPacket *packet)
             //       packet->GetOpcode(), GetRemoteAddress().c_str(), GetAccountId());
             if (sLog->IsOutDebug())
             {
-                sLog->outDebug(LOG_FILTER_NETWORKIO, "Dumping error causing packet:");
+                sLog->outString("Dumping error causing packet:");
                 packet->hexlike();
             }
         }
@@ -178,15 +178,7 @@ void ControlSession::Handle_SMSG_AUTH_RESPONSE(WorldPacket &recv_data)
     if (in == AUTH_OK)
     {
         SetFlag(CTL_FLAG_NODE_AUTHED, true);
-
-        //Pool-Node muss nicht initialisiert werden
-        //if (_nodeType == NODE_TYPE_POOL)
-        {
-            //sRoutingHelper->SetNodeOnline(_nodeId);
-            //return;
-        }
-        //else
-            SendInitAuthedNode();
+        SendInitAuthedNode();
     }
     else
         CloseSocket();
@@ -202,7 +194,10 @@ void ControlSession::Handle_NODE_INIT_ACK(WorldPacket &recvPacket)
     else
         CloseSocket();
 
-    sLog->outDebug(LOG_FILTER_NETWORKIO, "Node: %u ACK with %u", _nodeId, ack_code);
+    if(_nodeId == 1)
+        sLog->outString("[MasterNode]: ID: %u recieved status 'ONLINE' with code: 0x0%u_BLNZR", _nodeId, ack_code);
+    else
+        sLog->outString("[SlaveNode]: ID: %u recieved status 'ONLINE' with code: 0x0%u_BLNZR", _nodeId, ack_code);
 }
 
 void ControlSession::Handle_NODE_SYNC_DATA(WorldPacket &recvPacket)

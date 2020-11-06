@@ -34,14 +34,6 @@ bool LoginQueryHolder::Initialize()
     stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER);
     stmt->setUInt32(0, lowGuid);
     res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOADFROM, stmt);
-     
-    //stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_GROUP_MEMBER);
-    //stmt->setUInt32(0, lowGuid);
-    //res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOADGROUP, stmt);
-
-    //stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_INSTANCE);
-    //stmt->setUInt32(0, lowGuid);
-    //res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOADBOUNDINSTANCES, stmt);
 
     stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_AURAS);
     stmt->setUInt32(0, lowGuid);
@@ -103,14 +95,6 @@ bool LoginQueryHolder::Initialize()
         res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOADDECLINEDNAMES, stmt);
     }
 
-    //stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_GUILD_MEMBER);
-    //stmt->setUInt32(0, lowGuid);
-    //res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOADGUILD, stmt);
-
-    //stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_ARENAINFO);
-    //stmt->setUInt32(0, lowGuid);
-    //res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOADARENAINFO, stmt);
-
     stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_ACHIEVEMENTS);
     stmt->setUInt32(0, lowGuid);
     res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOADACHIEVEMENTS, stmt);
@@ -123,9 +107,9 @@ bool LoginQueryHolder::Initialize()
     stmt->setUInt32(0, lowGuid);
     res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOADEQUIPMENTSETS, stmt);
 
-    //stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_BGDATA);
-    //stmt->setUInt32(0, lowGuid);
-    //res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOADBGDATA, stmt);
+    stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_ENTRY_POINT);
+    stmt->setUInt32(0, lowGuid);
+    res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOADBGDATA, stmt);
 
     stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_GLYPHS);
     stmt->setUInt32(0, lowGuid);
@@ -214,35 +198,22 @@ void ClientSession::HandleCharEnum(PreparedQueryResult result)
 }
 
 void ClientSession::HandlePlayerLoginOpcode(WorldPacket & recv_data)
-{
-    //Show the CharEnum, when Node offline
-    if (!sRoutingHelper->CheckNodeID(_nodeId) || _nodeId == 0)
+{ 
+    // send player to char screen if current node is unavailable
+    if (!sRoutingHelper->CheckNodeID(_nodeId) || _nodeId == 0 && m_playerLoading)
     {
-        WorldPacket data(SMSG_LOGOUT_COMPLETE, 0);
+        WorldPacket data(SMSG_CHARACTER_LOGIN_FAILED, 1);
+        // @todo
+        //data << (uint8)CHAR_LOGIN_DUPLICATE_CHARACTER;
         SendPacket(&data);
-        return;
-    }
-
-    if (m_loginDelay)
-    {
-        if (++m_DoSStrikes > LOGON_DOS_STRIKE_LIMIT)
-        {
-            sLogon->BanAccountbyId(GetAccountId(), -1, "Denial of Service Attack", "Caroline");
-            KickPlayer();
-        }
-        else
-        {
-            WorldPacket data(SMSG_LOGOUT_COMPLETE, 0);
-            SendPacket(&data);
-        }
+        //SendAuthResponse(CHAR_LOGIN_NO_WORLD, false, 0);
         return;
     }
 
     SetPlayer(NULL);
-
     if (/*PlayerLoading() ||*/ GetPlayer() != NULL)
     {
-        sLog->outError("Player tryes to login again, AccountId = %d", GetAccountId());
+        sLog->outError("Player tries to login again, AccountId = %d", GetAccountId());
         return;
     }
 
@@ -262,11 +233,8 @@ void ClientSession::HandlePlayerLoginOpcode(WorldPacket & recv_data)
     {
         delete holder;                                      // delete all unprocessed queries
         m_playerLoading = false;
-        m_loginDelay = LOGON_LOGIN_DELAY;
         return;
     }
-
-    m_loginDelay = LOGON_LOGIN_DELAY;
 
     _charLoginCallback = CharacterDatabase.DelayQueryHolder((SQLQueryHolder*)holder);
 }
@@ -293,7 +261,7 @@ void ClientSession::HandlePlayerLogin(LoginQueryHolder * holder)
     //Add the Char to our ObjectMgr
     sObjectMgr->Player_Add(pCurrChar);
 
-    sLog->outDebug(LOG_FILTER_PLAYER_LOADING, "Player %s is loggin in.", pCurrChar->GetPlayerName().c_str());
+    sLog->outString("Player %s is logging in world node.", pCurrChar->GetPlayerName().c_str());
     LoadAccountData(holder->GetPreparedResult(PLAYER_LOGIN_QUERY_LOADACCOUNTDATA), PER_CHARACTER_CACHE_MASK);
     SendAccountDataTimes(PER_CHARACTER_CACHE_MASK);
     
@@ -308,7 +276,6 @@ void ClientSession::HandlePlayerLogin(LoginQueryHolder * holder)
 
     // Now we are save to connect to our node
     SendPlayerLogin();
-
     m_playerLoading = false;
     delete holder;
 }

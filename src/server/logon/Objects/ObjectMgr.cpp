@@ -22,41 +22,7 @@ bool normalizePlayerName(std::string& name)
 
     return true;
 }
-
-LanguageDesc lang_description[LANGUAGES_COUNT] =
-{
-    { LANG_ADDON,           0, 0                       },
-    { LANG_UNIVERSAL,       0, 0                       },
-    { LANG_ORCISH,        669, SKILL_LANG_ORCISH       },
-    { LANG_DARNASSIAN,    671, SKILL_LANG_DARNASSIAN   },
-    { LANG_TAURAHE,       670, SKILL_LANG_TAURAHE      },
-    { LANG_DWARVISH,      672, SKILL_LANG_DWARVEN      },
-    { LANG_COMMON,        668, SKILL_LANG_COMMON       },
-    { LANG_DEMONIC,       815, SKILL_LANG_DEMON_TONGUE },
-    { LANG_TITAN,         816, SKILL_LANG_TITAN        },
-    { LANG_THALASSIAN,    813, SKILL_LANG_THALASSIAN   },
-    { LANG_DRACONIC,      814, SKILL_LANG_DRACONIC     },
-    { LANG_KALIMAG,       817, SKILL_LANG_OLD_TONGUE   },
-    { LANG_GNOMISH,      7340, SKILL_LANG_GNOMISH      },
-    { LANG_TROLL,        7341, SKILL_LANG_TROLL        },
-    { LANG_GUTTERSPEAK, 17737, SKILL_LANG_GUTTERSPEAK  },
-    { LANG_DRAENEI,     29932, SKILL_LANG_DRAENEI      },
-    { LANG_ZOMBIE,          0, 0                       },
-    { LANG_GNOMISH_BINARY,  0, 0                       },
-    { LANG_GOBLIN_BINARY,   0, 0                       }
-};
-
-LanguageDesc const* GetLanguageDescByID(uint32 lang)
-{
-    for (uint8 i = 0; i < LANGUAGES_COUNT; ++i)
-    {
-        if (uint32(lang_description[i].lang_id) == lang)
-            return &lang_description[i];
-    }
-
-    return NULL;
-}
-
+  
 //Player Handlingz
 void ObjectMgr::Player_Add(Player* player)
 {
@@ -127,7 +93,17 @@ Player* ObjectMgr::FindPlayer(uint64 GUID)
 {
     PlayerMap::const_iterator itr = m_PlayerMap.find(GUID);
     if (itr != m_PlayerMap.end())
-        return itr->second;                               
+        return itr->second;
+    else
+        return NULL;
+}
+
+// @emo
+Player* ObjectMgr::FindPlayerInOrOutOfWorld(uint64 GUID)
+{
+    PlayerMap::const_iterator itr = m_PlayerMap.find(GUID);
+    if (itr != m_PlayerMap.end())
+        return itr->second;
     else
         return NULL;
 }
@@ -150,8 +126,25 @@ Player* ObjectMgr::FindPlayerByName(const char* name)
     return NULL;         
 }
 
+Player* ObjectMgr::FindPlayerByName(std::string name)
+{
+    std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+    for (PlayerMap::iterator itr = m_PlayerMap.begin(); itr != m_PlayerMap.end(); itr++)
+    {
+        if (itr == m_PlayerMap.end())
+            return NULL;
+
+        std::string currentName = itr->second->GetPlayerName();
+        std::transform(currentName.begin(), currentName.end(), currentName.begin(), ::tolower);
+        if (name.compare(currentName) == 0)
+            return itr->second;
+    }
+    return NULL;         
+}
+
 bool ObjectMgr::GetPlayerNameByGUID(uint64 guid, std::string &name) const
 {
+    return true;
     // prevent DB access for online player
     if (Player* player = sObjectMgr->GetPlayer(guid))
     {
@@ -159,17 +152,17 @@ bool ObjectMgr::GetPlayerNameByGUID(uint64 guid, std::string &name) const
         return true;
     }
 
-    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_NAME_DATA);
+    //PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_NAME_BY_GUID);
 
-    stmt->setUInt32(0, GUID_LOPART(guid));
+    //stmt->setUInt32(0, GUID_LOPART(guid));
 
-    PreparedQueryResult result = CharacterDatabase.Query(stmt);
+    //PreparedQueryResult result = CharacterDatabase.Query(stmt);
 
-    if (result)
-    {
-        name = (*result)[0].GetString();
-        return true;
-    }
+    //if (result)
+    //{
+     //   name = (*result)[0].GetString();
+     //   return true;
+    //}
 
     return false;
 }
@@ -193,26 +186,27 @@ uint64 ObjectMgr::GetPlayerGUIDByName(std::string name) const
 
 uint32 ObjectMgr::GetPlayerAccountIdByGUID(uint64 guid) const
 {
-    return 0; // @todo
+    return 0;
+    /*
     // prevent DB access for online player
     if (Player* player = sObjectMgr->GetPlayer(guid))
     {
         return player->GetSession()->GetAccountId();
     }
 
-    //PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_ACCOUNT_BY_GUID);
+    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_ACCOUNT_BY_GUID);
 
-    //stmt->setUInt32(0, GUID_LOPART(guid));
+    stmt->setUInt32(0, GUID_LOPART(guid));
 
-    //PreparedQueryResult result = CharacterDatabase.Query(stmt);
+    PreparedQueryResult result = CharacterDatabase.Query(stmt);
 
-    //if (result)
+    if (result)
     {
-        //uint32 acc = (*result)[0].GetUInt32();
-        //return acc;
+        uint32 acc = (*result)[0].GetUInt32();
+        return acc;
     }
 
-    return 0;
+    return 0;*/
 }
 
 uint32 ObjectMgr::GetPlayerAccountIdByPlayerName(const std::string& name) const
@@ -225,18 +219,6 @@ uint32 ObjectMgr::GetPlayerAccountIdByPlayerName(const std::string& name) const
     }
 
     return 0;
-}
-
-//Locales
-void ObjectMgr::AddLocaleString(std::string const& s, LocaleConstant locale, StringVector& data)
-{
-    if (!s.empty())
-    {
-        if (data.size() <= size_t(locale))
-            data.resize(locale + 1);
-
-        data[locale] = s;
-    }
 }
  
 void ObjectMgr::SetHighestGuids()
@@ -307,4 +289,74 @@ uint32 ObjectMgr::IncreaseGroupId()
         Logon::StopNow(ERROR_EXIT_CODE);
     }
     return m_hiGroupGuid++;
+}
+
+void ObjectMgr::LoadScriptNames()
+{
+    uint32 oldMSTime = getMSTime();
+
+    _scriptNamesStore.push_back("");
+    QueryResult result = WorldDatabase.Query(
+      "SELECT DISTINCT(ScriptName) FROM achievement_criteria_data WHERE ScriptName <> '' AND type = 11 "
+      "UNION "
+      "SELECT DISTINCT(ScriptName) FROM battleground_template WHERE ScriptName <> '' "
+      "UNION "
+      "SELECT DISTINCT(ScriptName) FROM creature_template WHERE ScriptName <> '' "
+      "UNION "
+      "SELECT DISTINCT(ScriptName) FROM gameobject_template WHERE ScriptName <> '' "
+      "UNION "
+      "SELECT DISTINCT(ScriptName) FROM item_template WHERE ScriptName <> '' "
+      "UNION "
+      "SELECT DISTINCT(ScriptName) FROM areatrigger_scripts WHERE ScriptName <> '' "
+      "UNION "
+      "SELECT DISTINCT(ScriptName) FROM spell_script_names WHERE ScriptName <> '' "
+      "UNION "
+      "SELECT DISTINCT(ScriptName) FROM transports WHERE ScriptName <> '' "
+      "UNION "
+      "SELECT DISTINCT(ScriptName) FROM game_weather WHERE ScriptName <> '' "
+      "UNION "
+      "SELECT DISTINCT(ScriptName) FROM conditions WHERE ScriptName <> '' "
+      "UNION "
+      "SELECT DISTINCT(ScriptName) FROM outdoorpvp_template WHERE ScriptName <> '' "
+      "UNION "
+      "SELECT DISTINCT(script) FROM instance_template WHERE script <> ''");
+
+    if (!result)
+    {
+        sLog->outString();
+        sLog->outErrorDb(">> Loaded empty set of Script Names!");
+        return;
+    }
+
+    uint32 count = 1;
+
+    do
+    {
+        _scriptNamesStore.push_back((*result)[0].GetString());
+        ++count;
+    }
+    while (result->NextRow());
+
+    std::sort(_scriptNamesStore.begin(), _scriptNamesStore.end());
+    sLog->outString(">> Loaded %d Script Names in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
+    sLog->outString();
+}
+
+uint32 ObjectMgr::GetScriptId(const char *name)
+{
+    // use binary search to find the script name in the sorted vector
+    // assume "" is the first element
+    if (!name)
+        return 0;
+
+    ScriptNameContainer::const_iterator itr = std::lower_bound(_scriptNamesStore.begin(), _scriptNamesStore.end(), name);
+    if (itr == _scriptNamesStore.end() || *itr != name)
+        return 0;
+
+    return uint32(itr - _scriptNamesStore.begin());
+}
+
+void ObjectMgr::CheckScripts(ScriptsType type, std::set<int32>& ids)
+{
+    return;
 }

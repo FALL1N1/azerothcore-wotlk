@@ -5,19 +5,17 @@
 
 #include "Logon.h" 
 #include "DatabaseEnv.h"
-#include "ByteBuffer.h"
-#include "Logon.h"
+#include "ByteBuffer.h"   
 
 //DEPS
-#include "Groups.h"
+//#include "Group.h"
 
 class WorldPacket;
 class ByteBuffer;
 class ClientSocket;
 class NodeSocket;
 class Player;
-class LoginQueryHolder;
-class Warden;
+class LoginQueryHolder; 
 
 enum AccountDataType
 {
@@ -44,6 +42,14 @@ struct AccountData
     std::string Data;
 };
 
+enum PartyOperation
+{
+    PARTY_OP_INVITE = 0,
+    PARTY_OP_UNINVITE = 1,
+    PARTY_OP_LEAVE = 2,
+    PARTY_OP_SWAP = 4
+};
+
 enum SessionFlags
 {
     FLAG_ACCOUNT_RECONNECT      = 0x00000001,
@@ -54,6 +60,14 @@ enum SessionFlags
     FLAG_FORCE_TELEPORT         = 0x00000040,
     FLAG_INFORMED_SERVER_DOWN   = 0x00000080,
     FLAG_ACCOUNT_KICKED         = 0x00000100,
+}; 
+
+enum CharterTypes
+{
+    GUILD_CHARTER_TYPE = 9,
+    ARENA_TEAM_CHARTER_2v2_TYPE = 2,
+    ARENA_TEAM_CHARTER_3v3_TYPE = 3,
+    ARENA_TEAM_CHARTER_5v5_TYPE = 5
 };
 
 //Temp use
@@ -95,7 +109,14 @@ public:
     {
         KickPlayer();
         _banned = true;
-    } 
+    }
+
+    /*********************************************************/
+    /***                     ADDON                         ***/
+    /*********************************************************/
+    void ReadAddonsInfo(WorldPacket &data);
+    void SendAddonsInfo();
+
     /*********************************************************/
     /***                  I/O HANDLING                     ***/
     /*********************************************************/
@@ -134,8 +155,9 @@ public:
     void SendAuthResponse(uint8 code, bool shortForm, uint32 queuePos = 0);
     void SendClientCacheVersion(uint32 version);
     void SendPlayerNotFoundNotice(std::string name);
-    void SendWrongFactionNotice(); 
-    void SendPartyResult(PartyOperation operation, const std::string& member, PartyResult res, uint32 val = 0);
+    void SendWrongFactionNotice();
+    void SendNotification(const char *format, ...) ATTR_PRINTF(2, 3);
+    void SendNotification(uint32 string_id, ...); 
     void SendPlayerLogin();
 
     /*********************************************************/
@@ -143,6 +165,7 @@ public:
     /*********************************************************/
     void KickPlayer();
     void PlayerLogout();
+    bool PlayerLoggingOut() const { return m_playerLogout; }
     void SetPlayer(Player *plr);
     Player* GetPlayer() const { return _player; }
     uint64 GetGuid() { return _GUID; }
@@ -168,6 +191,7 @@ public:
     /*********************************************************/
     LocaleConstant GetSessionDbcLocale() const { return _sessionDbcLocale; }
     LocaleConstant GetSessionDbLocaleIndex() const { return _sessionDbLocaleIndex; }
+    const char *GetTrinityString(int32 entry) const;
 
     /*********************************************************/
     /***                   TUTORIALS                       ***/
@@ -188,8 +212,8 @@ public:
     }
 
     void SaveTutorialsData(SQLTransaction& trans);
-     
 
+    void SendServerMessageToPlayer(Player* player, const char* msg);
     void SetStunned(bool apply);
 
 
@@ -204,26 +228,60 @@ public:
     void HandlePlayerLogoutRequest(WorldPacket& recv_data);
     void HandleLogoutCancelOpcode(WorldPacket& recv_data); 
     void HandleWorldStateUITimerUpdate(WorldPacket& /*recv_data*/);
+
+    //QueryCache
+    void HandleGameObjectQueryOpcode(WorldPacket & recv_data);
+    void HandleCreatureQueryOpcode(WorldPacket & recv_data);
+    void HandleItemQuerySingleOpcode(WorldPacket & recv_data);
+    void HandleQuestQueryOpcode(WorldPacket & recv_data);
+
+    //Temp use
+    void SMSG_LOGIN_VERIFY_WORLD(WorldPacket& recvPacket);
  
-    //Groups
-    void HandleGroupInviteOpcode(WorldPacket& recvPacket);
- 
+    //Channels
+    void HandleJoinChannel(WorldPacket& recvPacket);
+    void HandleLeaveChannel(WorldPacket& recvPacket);
+    void HandleChannelList(WorldPacket& recvPacket);
+    void HandleChannelPassword(WorldPacket& recvPacket);
+    void HandleChannelSetOwner(WorldPacket& recvPacket);
+    void HandleChannelOwner(WorldPacket& recvPacket);
+    void HandleChannelModerator(WorldPacket& recvPacket);
+    void HandleChannelUnmoderator(WorldPacket& recvPacket);
+    void HandleChannelMute(WorldPacket& recvPacket);
+    void HandleChannelUnmute(WorldPacket& recvPacket);
+    void HandleChannelInvite(WorldPacket& recvPacket);
+    void HandleChannelKick(WorldPacket& recvPacket);
+    void HandleChannelBan(WorldPacket& recvPacket);
+    void HandleChannelUnban(WorldPacket& recvPacket);
+    void HandleChannelAnnouncements(WorldPacket& recvPacket);
+    void HandleChannelDisplayListQuery(WorldPacket& recvPacket);
+    void HandleGetChannelMemberCount(WorldPacket& recvPacket);
+    void HandleSetChannelWatch(WorldPacket& recvPacket);
+
+    // GM Tickets
+    void HandleGMTicketCreateOpcode(WorldPacket& recvPacket);
+    void HandleGMTicketUpdateOpcode(WorldPacket& recvPacket);
+    void HandleGMTicketDeleteOpcode(WorldPacket& recvPacket);
+    void HandleGMTicketGetTicketOpcode(WorldPacket& recvPacket);
+    void HandleGMTicketSystemStatusOpcode(WorldPacket& recvPacket);
+    void HandleGMSurveySubmit(WorldPacket& recvPacket);
+    void HandleReportLag(WorldPacket& recvPacket);
+    void HandleGMResponseResolve(WorldPacket& recvPacket);
+     
     /************************************************************\
     |******************** SocialHandler stuff *******************|
-    \************************************************************/
-    void HandleContactListOpcode(WorldPacket& recvPacket);
-    void HandleAddFriendOpcode(WorldPacket& recvPacket);
-    void HandleAddFriendOpcodeCallBack(PreparedQueryResult result, std::string friendNote);
-    void HandleDelFriendOpcode(WorldPacket& recvPacket);
-    void HandleAddIgnoreOpcode(WorldPacket& recvPacket);
-    void HandleAddIgnoreOpcodeCallBack(PreparedQueryResult result);
-    void HandleDelIgnoreOpcode(WorldPacket& recvPacket);
-    void HandleSetContactNotesOpcode(WorldPacket& recvPacket);
+    \************************************************************/ 
 
     //ClientHandlings
-public: 
+public:
+    void HandleQueryInspectAchievements(WorldPacket & recv_data);
     void HandleWhoisOpcode(WorldPacket& recv_data);
-    void HandleSendMail(WorldPacket & recv_data); 
+    void HandleSendMail(WorldPacket & recv_data);
+
+    //Future
+    bool checkMsgForMute(Player* sender, WorldPacket & recv_data);
+    bool checkMsgForCommand(std::string msg, WorldPacket & recv_data);
+    void HandleMessagechatOpcode(WorldPacket & recv_data);
 
     //NodeHandlings
 public:
@@ -255,6 +313,8 @@ public:
 
     bool CharCanLogin(uint32 lowGUID) { return _allowedCharsToLogin.find(lowGUID) != _allowedCharsToLogin.end(); }
     std::set<uint32> _allowedCharsToLogin;
+    void SendToNode(uint32 n, uint32 m);
+    uint32 GetCurrentNode() { return _nodeId; }
 
 private:
 
@@ -292,7 +352,11 @@ private:
     uint64 _GUID;
     uint32 _GUIDLow;
     Player *_player;
-    bool m_playerLoading;
+    bool m_inQueue;                                     // session wait in auth.queue
+    bool m_playerLoading;                               // code processed in LoginPlayer
+    bool m_playerLogout;                                // code processed in LogoutPlayer
+    bool m_playerSave;
+    bool m_playerRecentlyLogout;
     uint32 m_loginDelay;
     uint32 m_DoSStrikes;
 

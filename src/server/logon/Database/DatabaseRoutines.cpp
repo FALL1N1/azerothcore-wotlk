@@ -11,6 +11,7 @@
 #include "ObjectMgr.h"
 #include "RoutingHelper.h"
 
+
 // NIX ANFASSEN, ES SEI DENN DU WEIßT WAS DU TUST (UND DAS TUST DU NICHT!)
 
 class item_instance : public acore::Runnable
@@ -104,11 +105,10 @@ void RebaseClass::Begin()
         sLog->outString(">> Loaded 0 item_instance GUIDs.");
         sLog->outString();
         return;
-    }
-
+    } 
     uint32 count = 0;
     do
-    {
+    { 
         ++count;
         Field* fields = result->Fetch();
         _ItemMap[fields[0].GetUInt32()] = count;
@@ -163,7 +163,7 @@ void RebaseClass::Begin()
     Logon::ContinueNow(); 
 
     //Set the realm online
-    LoginDatabase.DirectPExecute("UPDATE realmlist SET color = color & 1, population = 0 WHERE id = '%u'", realmID);
+    LoginDatabase.DirectPExecute("UPDATE realmlist SET flag = flag & 1, population = 0 WHERE id = '%u'", realmID);
 }
 
 void RebaseClass::Init()

@@ -4,10 +4,10 @@
 #include "Player.h"
 #include "ObjectMgr.h"
 #include "WorldPacket.h"
-#include "Opcodes.h"
-#include "Language.h"
-#include "SocialMgr.h" 
-#include "LoginHolderEnum.h"
+#include "Opcodes.h" 
+#include "SocialMgr.h"    
+#include "Items.h"
+#include "LoginHolderEnum.h" 
 
 enum CharacterFlags
 {
@@ -65,6 +65,7 @@ m_session(session), m_PackGUID(sizeof(uint64)+1), m_GUID(GUID)
     m_ExtraFlags = 0;
     m_social = NULL;
     _IsInBattleGround = false;
+    //SetGroupInvite(NULL);
 }
 
 Player::~Player()
@@ -75,7 +76,13 @@ void Player::Logout(uint32 accountId)
     ///- Broadcast a logout message to the player's friends
     sSocialMgr->SendFriendStatus(this, FRIEND_OFFLINE, GetGUIDLow(), true);
     sSocialMgr->RemovePlayerSocial(GetGUIDLow());
-
+    /*if (GetGroup()) {
+        sLog->outString("GROUP UPDATE ON LOGOUT FOR %s(%u)", GetName(), GetGUID());
+        GetGroup()->SendUpdate();
+        // GetGroup()->SendUpdateToPlayer(); // we don't need it here
+        SetGroupUpdateFlag(GROUP_UPDATE_FULL);
+    }*/
+         
     ///- Leave all Channels before Logout
     CleanupChannels();
 }
@@ -115,70 +122,38 @@ bool Player::LoadFromDB(uint32 guid, SQLQueryHolder *holder)
     _team = TeamForRace(_race);
     _level = fields[6].GetUInt8();
     m_flags = fields[11].GetUInt32();
-    mapId = fields[15].GetUInt16();
-    
-    // GM state
-    uint32 extraflags = fields[31].GetUInt16();
-    if (!AccountMgr::IsPlayerAccount(GetSession()->GetSecurity()))
-    {
-        switch (sLogon->getIntConfig(CONFIG_GM_LOGIN_STATE))
-        {
-            default:
-            case 0:                      break;             // disable
-            case 1: SetGameMaster(true); break;             // enable
-            case 2:                                         // save state*/
-                if (extraflags & PLAYER_EXTRA_GM_ON)
-                    SetGameMaster(true);
-                break;
-        }
+    _mapId = fields[15].GetUInt16();
 
-        switch (sLogon->getIntConfig(CONFIG_GM_VISIBLE_STATE))
-        {
-            default:
-            case 0: SetGMVisible(false); break;             // invisible
-            case 1:                      break;             // visible
-            case 2:                                         // save state
-                if (extraflags & PLAYER_EXTRA_GM_INVISIBLE)
-                    SetGMVisible(false);
-                break;
-        }
-
-        switch (sLogon->getIntConfig(CONFIG_GM_CHAT))
-        {
-            default:
-            case 0:                  break;                 // disable
-            case 1: SetGMChat(true); break;                 // enable
-            case 2:                                         // save state
-                if (extraflags & PLAYER_EXTRA_GM_CHAT)
-                    SetGMChat(true);
-                break;
-        }
-
-        switch (sLogon->getIntConfig(CONFIG_GM_WHISPERING_TO))
-        {
-            default:
-            case 0:                          break;         // disable
-            case 1: SetAcceptWhispers(true); break;         // enable
-            case 2:                                         // save state
-                if (extraflags & PLAYER_EXTRA_ACCEPT_WHISPERS)
-                    SetAcceptWhispers(true);
-                break;
-        }
-    }
-    else
-    {
-        SetGameMaster(false);
-        SetGMVisible(true);
-        SetGMChat(false);
-        SetAcceptWhispers(true);
-    }
-     
+      
     // load the socials
     m_social = sSocialMgr->LoadFromDB(holder->GetPreparedResult(PLAYER_LOGIN_QUERY_LOADSOCIALLIST), GetGUIDLow());
-
+    //_LoadGroup();
     return true;
 
 }
+/*
+void Player::_LoadGroup()
+{
+    if (uint32 groupId = GetGroupIdFromStorage(GetGUIDLow()))
+        if (Group* group = sGroupMgr->GetGroupByGUID(groupId))
+            if (group->GetMemberGroup(GetGUID()) <= MAX_RAID_SUBGROUPS)
+            {
+                if (group->IsLeader(GetGUID()))
+                    SetFlag(PLAYER_FLAGS_GROUP_LEADER);
+
+                uint8 subgroup = group->GetMemberGroup(GetGUID());
+                SetGroup(group, subgroup);
+
+                // the group leader may change the instance difficulty while the player is offline
+                SetDungeonDifficulty(group->GetDungeonDifficulty());
+                SetRaidDifficulty(group->GetRaidDifficulty());
+            }
+
+    if (!GetGroup() || !GetGroup()->IsLeader(GetGUID()))
+        RemoveFlag(PLAYER_FLAGS_GROUP_LEADER);
+}
+
+*/ 
 
 void Player::SendInitialPackets()
 { 
@@ -188,7 +163,7 @@ void Player::SendDirectMessage(WorldPacket *data)
 {
     m_session->SendPacket(data);
 }
- 
+  
 //FlagControl
 void Player::SetFlag(uint32 newFlag)
 {
@@ -211,21 +186,60 @@ void Player::RemoveFlag(uint32 oldFlag)
 //Zone/Area-Related things
 void ClientSession::Handle_NODE_PLAYER_CHANGED_ZONE(WorldPacket& recvPacket)
 {
-    uint32 zone, area;
+    uint32 zone, area, mapid;
     recvPacket >> zone;
     recvPacket >> area;
+    recvPacket >> mapid;
 
-    GetPlayer()->UpdateZone(zone,area);
+    GetPlayer()->UpdateZone(zone,area, mapid);
 }
 
-void Player::UpdateZone(uint32 newZone, uint32 newArea)
+void Player::UpdateZone(uint32 newZone, uint32 newArea, uint32 mapId)
 {
+    // we'll see if we would separate wintergrasp, let's not do it for now
+    bool isWintergrasp = newZone == 4197 ? true : false;
+    int32 WGNode = 12345;
+/*
+    // routing to the new map node (if any)
+    // check if we changed zone
+    if (_mapId != mapId)
+    {
+        int32 mapNode = -1; mapNode = sRoutingHelper->GetNodeForMap(mapId);
+        if (mapNode >= 0)
+        {
+            sLog->outString("mapNode: %u != curnode: %u", mapNode, GetSession()->GetCurrentNode());
+            if (mapNode != GetSession()->GetCurrentNode())
+            {
+                sLog->outString("[NodeSWAP] Player %s(%u) changed zone/map and moved to appropriate node.");
+                sLog->outString("[NodeSWAP] Old node: %u   New node: %u", GetSession()->GetCurrentNode(), sRoutingHelper->GetNodeForMap(mapId));
+                GetSession()->SendToNode(mapNode, mapId);
+            }
+        }
+    } 
+*/
     //This could be critical
     ACORE_GUARD(ACE_Thread_Mutex, Lock);
     {
         _areaId = newArea;
         _zoneId = newZone;
+        _mapId = mapId;
     }
+
+    // group update
+    /*if (Group* grp = GetGroup())
+    {
+        //sLog->outString("has group, %u : %s", GetGUID(), GetName());
+        grp->SendUpdate();
+        grp->SendUpdateToPlayer(GetGUID());
+        SetGroupUpdateFlag(GROUP_UPDATE_FULL);
+    } */
+
+    sLog->outString("PLAYER MOVED TO A NEW ZONE/AREA: %u, %u, %u", newArea, newZone, mapId);
+
+
+
+   // if (Guild* guild = GetGuild())
+       // guild->UpdateMemberData(this, GUILD_MEMBER_DATA_ZONEID, newZone);
 }
 
 void ClientSession::Handle_SMSG_LEVELUP_INFO(WorldPacket& recvPacket)
@@ -234,6 +248,9 @@ void ClientSession::Handle_SMSG_LEVELUP_INFO(WorldPacket& recvPacket)
     recvPacket >> level;
     _player->SetLevelUp(level);
     recvPacket.rfinish();
+
+    //if (Guild* guild = _player->GetGuild())
+        //guild->UpdateMemberData(_player, GUILD_MEMBER_DATA_LEVEL, level);
 }
 
 /************************************************************\
@@ -262,20 +279,7 @@ void Player::SetGameMaster(bool on)
 |******************** TEAM related stuff ********************|
 \************************************************************/
 uint32 Player::TeamForRace(uint8 race)
-{/*
-    if (ChrRacesEntry const* rEntry = sChrRacesStore.LookupEntry(race))
-    {
-        switch (rEntry->TeamID)
-        {
-            case 1: return HORDE;
-            case 7: return ALLIANCE;
-        }
-        sLog->outError("Race (%u) has wrong teamid (%u) in DBC: wrong DBC files?", uint32(race), rEntry->TeamID);
-    }
-    else
-        sLog->outError("Race (%u) not found in DBC: wrong DBC files?", uint32(race));
-
-    return ALLIANCE;*/
+{
     return 0;
 }
 
@@ -289,8 +293,8 @@ void Player::setFactionForRace(uint8 race)
 \************************************************************/
 void Player::Whisper(const std::string& text, uint32 language, uint64 receiver)
 {
-    if (language != LANG_ADDON)                             // if not addon data
-        language = LANG_UNIVERSAL;                          // whispers should always be readable
+    //if (language != LANG_ADDON)                             // if not addon data
+        //language = LANG_UNIVERSAL;                          // whispers should always be readable
 
     Player *rPlayer = sObjectMgr->GetPlayer(receiver);
     WorldPacket data;
@@ -301,25 +305,25 @@ void Player::Whisper(const std::string& text, uint32 language, uint64 receiver)
     if (!rPlayer->isDND() || isGameMaster())
     {
         data.Initialize(SMSG_MESSAGECHAT, 200);
-        BuildPlayerChat(&data, CHAT_MSG_WHISPER, _text, language);
+        //BuildPlayerChat(&data, CHAT_MSG_WHISPER, _text, language);
         rPlayer->GetSession()->SendPacket(&data);
 
         // not send confirmation for addon messages
-        if (language != LANG_ADDON)
+        //if (language != LANG_ADDON)
         {
             data.Initialize(SMSG_MESSAGECHAT, 200);
-            rPlayer->BuildPlayerChat(&data, CHAT_MSG_WHISPER_INFORM, _text, language);
+            //rPlayer->BuildPlayerChat(&data, CHAT_MSG_WHISPER_INFORM, _text, language);
             GetSession()->SendPacket(&data);
         }
     }
     else
         // announce to player that player he is whispering to is dnd and cannot receive his message
-        ;//ChatHandler(this).PSendSysMessage(LANG_PLAYER_DND, rPlayer->GetName(), rPlayer->dndMsg.c_str());
+        ;// ChatHandler(this).PSendSysMessage(LANG_PLAYER_DND, rPlayer->GetName(), rPlayer->dndMsg.c_str());
 
     if (!isAcceptWhispers() && !isGameMaster() && !rPlayer->isGameMaster())
     {
         SetAcceptWhispers(true);
-        //ChatHandler(this).SendSysMessage(LANG_COMMAND_WHISPERON);
+        // ChatHandler(this).SendSysMessage(LANG_COMMAND_WHISPERON);
     }
 
     // announce to player that player he is whispering to is afk
@@ -358,8 +362,8 @@ bool Player::IsVisibleGloballyFor(Player* u) const
     //    return true;
 
     // GMs are visible for higher gms (or players are visible for gms)
-    if (!AccountMgr::IsPlayerAccount(u->GetSession()->GetSecurity()))
-        return GetSession()->GetSecurity() <= u->GetSession()->GetSecurity();
+    //if (!AccountMgr::IsVIPorPlayer(u->GetSession()->GetSecurity()))
+        //return GetSession()->GetSecurity() <= u->GetSession()->GetSecurity();
 
     // non faction visibility non-breakable for non-GMs
     //if (!IsVisible())
@@ -420,7 +424,7 @@ bool Player::BuildEnumData(PreparedQueryResult result, WorldPacket* data)
     *data << fields[11].GetFloat();                         // y
     *data << fields[12].GetFloat();                         // z
 
-    *data << uint32(fields[13].GetUInt32());                // guild id
+    *data << uint32(fields[13].GetUInt32());                // guild id 
 
     uint32 charFlags = 0;
     uint32 playerFlags = fields[14].GetUInt32();
@@ -463,9 +467,8 @@ bool Player::BuildEnumData(PreparedQueryResult result, WorldPacket* data)
     uint32 petLevel = 0;
     uint32 petFamily = 0;
 
-    /*
     // show pet at selection character in character list only for non-ghost character
-    if (result && !(playerFlags & PLAYER_FLAGS_GHOST) && (plrClass == CLASS_WARLOCK || plrClass == CLASS_HUNTER || plrClass == CLASS_DEATH_KNIGHT))
+    /*if (result && !(playerFlags & PLAYER_FLAGS_GHOST) && (plrClass == CLASS_WARLOCK || plrClass == CLASS_HUNTER || plrClass == CLASS_DEATH_KNIGHT))
     {
         uint32 entry = fields[16].GetUInt32();
         CreatureTemplate const* creatureInfo = sCreatures->GetCreatureTemplate(entry);
@@ -486,22 +489,16 @@ bool Player::BuildEnumData(PreparedQueryResult result, WorldPacket* data)
     {
         uint32 visualBase = slot * 2;
         uint32 itemId = GetUInt32ValueFromArray(equipment, visualBase);
-        //ItemTemplate const* proto = sItems->GetItemTemplate(itemId);
-        //if (!proto)
-        //{
+        ItemTemplate const* proto = sItems->GetItemTemplate(itemId);
+        if (!proto)
+        {
             *data << uint32(0);
             *data << uint8(0);
             *data << uint32(0);
-            //continue;
-        //}
+            continue;
+        }
 
-        //*data << uint32(proto->DisplayInfoID);
-        //*data << uint8(proto->InventoryType);
-        *data << uint32(0);
-        *data << uint8(0);
-
-        /*
-        SpellItemEnchantmentEntry const* enchant = NULL;
+        /*SpellItemEnchantmentEntry const* enchant = NULL;
 
         uint32 enchants = GetUInt32ValueFromArray(equipment, visualBase + 1);
         for (uint8 enchantSlot = PERM_ENCHANTMENT_SLOT; enchantSlot <= TEMP_ENCHANTMENT_SLOT; ++enchantSlot)
@@ -514,12 +511,11 @@ bool Player::BuildEnumData(PreparedQueryResult result, WorldPacket* data)
             enchant = sSpellItemEnchantmentStore.LookupEntry(enchantId);
             if (enchant)
                 break;
-        }
-         
-        *data << uint32(enchant ? enchant->aura_id : 0);
-        */
-         
-        *data << uint32(0); // enchant
+        }*/
+
+        *data << uint32(proto->DisplayInfoID);
+        *data << uint8(proto->InventoryType);
+        *data << uint32(0); // enchant id 
     }
 
     return true;
@@ -563,17 +559,33 @@ void Player::LeftChannel(Channel* c)
 }
 
 void Player::CleanupChannels()
-{
-    while (!m_channels.empty())
-    {
-        Channel* ch = *m_channels.begin();
-        m_channels.erase(m_channels.begin());               // remove from player's channel list
-        //ch->Leave(GetGUID(), false);                        // not send to client, not remove from player's channel list
-        //if (ChannelMgr* cMgr = channelMgr(GetTeam()))
-            //cMgr->LeftChannel(ch->GetName());               // deleted channel if empty
-    }
+{ 
     sLog->outDebug(LOG_FILTER_CHATSYS, "Player: channels cleaned up!");
 }
+
+bool Player::IsPvPFlagged()
+{
+    return false;
+    //return HasFlag(PLAYER_FLAGS_AFK) ? true : false;
+}
+
+bool Player::IsPvP()
+{
+    return false;
+    //return HasFlag(PLAYER_FLAGS_AFK) ? true : false;
+}
+
+bool Player::IsFFAPvP()
+{
+    return false;
+    //return HasFlag(PLAYER_FLAGS_AFK) ? true : false;
+}
+
+void Player::setDeathState(DeathState s, bool despawn)
+{
+    _deathState = s;
+}
+
 
 /************************************************************\
 |******************** CHAT related stuff ********************|

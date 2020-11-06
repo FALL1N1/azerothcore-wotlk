@@ -467,11 +467,7 @@ bool Master::_StartDB()
     sLog->SetRealmID(realmID);
 
     ///- Clean the database before starting
-    clearOnlineAccounts();
-
-    sLogon->LoadDBVersion();
-
-    sLog->outString("Using World DB: %s", sLogon->GetDBVersion());
+    clearOnlineAccounts(); 
     //sLog->outString("Using creature EventAI: %s", sWorld->GetCreatureEventAIVersion());
     return true;
 }
