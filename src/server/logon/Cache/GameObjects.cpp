@@ -67,7 +67,7 @@ GameObjectTemplate const* GameObjects::GetGameObjectTemplate(uint32 entry)
 void GameObjects::CacheGameObjectTemplate(GameObjectTemplate* gob)
 {
     //To prevent a crash we should set an Mutex here
-    TRINITY_WRITE_GUARD(ACE_RW_Thread_Mutex, rwMutex_);
+    ACORE_WRITE_GUARD(ACE_RW_Thread_Mutex, rwMutex_);
 
     GameObjectTemplate& go = _gameObjectTemplateStore[gob->entry];
     go = *gob;

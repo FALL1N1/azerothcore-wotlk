@@ -27,9 +27,9 @@ public:
     ~ControlSocket();
 
 private:
-    virtual int _sendPacket(const WorldPacket &pct);
+    virtual int _sendPacket(const WorldPacket& pct);
     virtual int _handleInputHeader();
-    virtual int _processIncoming(WorldPacket *new_pct);
+    virtual int _processIncoming(WorldPacket* new_pct);
 
     AuthCrypt _crypt;
 
@@ -39,7 +39,7 @@ private:
 class ControlSocketConnector : public SocketConnector<ControlSocket>
 {
 public:
-    ControlSocket * OpenConnection(uint32 nodeID)
+    ControlSocket* OpenNodeConnection(uint32 nodeID)
     {
         NodeList nodeInfo = sRoutingHelper->GetNodeConnectionData(nodeID);
 

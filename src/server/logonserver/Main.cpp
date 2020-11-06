@@ -29,9 +29,11 @@
 #include "Common.h"
 #include "Database/DatabaseEnv.h"
 #include "Configuration/Config.h"
+#include "Database/Implementation/LogonDatabase.h"
 
 #include "Log.h"
 #include "Master.h"
+
 
 #ifndef _TRINITY_CORE_CONFIG
 # define _TRINITY_CORE_CONFIG  "logonserver.conf"
@@ -55,8 +57,7 @@ int m_ServiceStatus = -1;
 WorldDatabaseWorkerPool WorldDatabase;                      ///< Accessor to the world database
 CharacterDatabaseWorkerPool CharacterDatabase;              ///< Accessor to the character database
 LoginDatabaseWorkerPool LoginDatabase;                      ///< Accessor to the realm/login database
-LogonDatabaseWorkerPool LogonDatabase;                      ///< Accessor to the node database
-LogDatabaseWorkerPool LogDatabase;                          ///< Accessor to the log database
+LogonDatabaseWorkerPool LogonDatabase;                      ///< Accessor to the node database 
 
 uint32 realmID;                                             ///< Id of the realm
 
@@ -133,8 +134,8 @@ extern int main(int argc, char **argv)
         #endif
         ++c;
     }
-
-    if (!ConfigMgr::Load(cfg_file))
+     
+    if (!sConfigMgr->LoadMore(cfg_file))
     {
         sLog->outError("Invalid or missing configuration file : %s", cfg_file);
         sLog->outError("Verify that the file exists and has \'[worldserver]' written in the top of the file!");

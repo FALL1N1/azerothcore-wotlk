@@ -194,15 +194,16 @@ template<class T>
 inline void LoadDBC(uint32& availableDbcLocales, StoreProblemList& errors, DBCStorage<T>& storage, std::string const& dbcPath, std::string const& filename, std::string const* customFormat = NULL, std::string const* customIndexName = NULL)
 {
     // compatibility format and C++ structure sizes
-    ASSERT(DBCFileLoader::GetFormatRecordSize(storage.GetFormat()) == sizeof(T) || LoadDBC_assert_print(DBCFileLoader::GetFormatRecordSize(storage.GetFormat()), sizeof(T), filename));
+//    ASSERT(DBCFileLoader::GetFormatRecordSize(storage.GetFormat()) == sizeof(T) || LoadDBC_assert_print(DBCFileLoader::GetFormatRecordSize(storage.GetFormat()), sizeof(T), filename));
 
     ++DBCFileCount;
     std::string dbcFilename = dbcPath + filename;
-    SqlDbc * sql = NULL;
-    if (customFormat)
-        sql = new SqlDbc(&filename, customFormat, customIndexName, storage.GetFormat());
+    //SqlDbc * sql = NULL;
+    //if (customFormat)
+       // sql = new SqlDbc(&filename, customFormat, customIndexName, storage.GetFormat());
 
-    if (storage.Load(dbcFilename.c_str(), sql))
+    //if (storage.Load(dbcFilename.c_str(), sql))
+    if (storage.Load(dbcFilename.c_str()))
     {
         for (uint8 i = 0; i < TOTAL_LOCALES; ++i)
         {
@@ -224,7 +225,7 @@ inline void LoadDBC(uint32& availableDbcLocales, StoreProblemList& errors, DBCSt
         if (FILE* f = fopen(dbcFilename.c_str(), "rb"))
         {
             char buf[100];
-            snprintf(buf, 100, " (exists, but has %u fields instead of " SIZEFMTD ") Possible wrong client version.", storage.GetFieldCount(), strlen(storage.GetFormat()));
+            //snprintf(buf, 100, " (exists, but has %u fields instead of " SIZEFMTD ") Possible wrong client version.", storage.GetFieldCount(), strlen(storage.GetFormat()));
             errors.push_back(dbcFilename + buf);
             fclose(f);
         }
@@ -232,7 +233,7 @@ inline void LoadDBC(uint32& availableDbcLocales, StoreProblemList& errors, DBCSt
             errors.push_back(dbcFilename);
     }
 
-    delete sql;
+    //delete sql;
 }
 
 void LoadDBCStores(const std::string& dataPath)
@@ -348,10 +349,10 @@ void LoadDBCStores(const std::string& dataPath)
     LoadDBC(availableDbcLocales, bad_dbc_files, sMapStore,                    dbcPath, "Map.dbc");
     LoadDBC(availableDbcLocales, bad_dbc_files, sMapDifficultyStore,          dbcPath, "MapDifficulty.dbc");
     // fill data
-    for (uint32 i = 1; i < sMapDifficultyStore.GetNumRows(); ++i)
-        if (MapDifficultyEntry const* entry = sMapDifficultyStore.LookupEntry(i))
-            sMapDifficultyMap[MAKE_PAIR32(entry->MapId, entry->Difficulty)] = MapDifficulty(entry->resetTime, entry->maxPlayers, entry->areaTriggerText[0] != '\0');
-    sMapDifficultyStore.Clear();
+    //for (uint32 i = 1; i < sMapDifficultyStore.GetNumRows(); ++i)
+    //    if (MapDifficultyEntry const* entry = sMapDifficultyStore.LookupEntry(i))
+    //        sMapDifficultyMap[MAKE_PAIR32(entry->MapId, entry->Difficulty)] = MapDifficulty(entry->resetTime, entry->maxPlayers, entry->areaTriggerText[0] != '\0');
+    //sMapDifficultyStore.Clear();
 
     LoadDBC(availableDbcLocales, bad_dbc_files, sMovieStore,                  dbcPath, "Movie.dbc");
 

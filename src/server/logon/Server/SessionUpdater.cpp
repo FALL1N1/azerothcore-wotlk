@@ -17,6 +17,8 @@
 #include <ace/os_include/sys/os_types.h>
 #include <ace/os_include/sys/os_socket.h>
 
+#include "Timer.h"
+
 #define LOGON_SESSION_SLEEP_CONST 5000 //micro-seconds
 
 SessionUpdater::SessionUpdater() :
@@ -76,6 +78,22 @@ void SessionUpdater::SetSleep()
     m_Counter = 0;
     m_Sessions.clear();
 }
+
+inline uint32 getUSTime()
+{
+    static const ACE_Time_Value ApplicationStartTime = ACE_OS::gettimeofday();
+    return (ACE_OS::gettimeofday() - ApplicationStartTime).usec();
+}
+
+inline uint32 getUSTimeDiff(uint32 oldUSTime, uint32 newUSTime)
+{
+    // getUSTime() have limited data range and this is case when it overflow in this tick
+    if (oldUSTime > newUSTime)
+        return (0x000F423F - oldUSTime) + newUSTime;
+    else
+        return newUSTime - oldUSTime;
+}
+
 
 int SessionUpdater::svc()
 {

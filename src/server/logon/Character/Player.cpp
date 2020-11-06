@@ -1,4 +1,3 @@
-#include "AchievementMgr.h"
 #include "AccountMgr.h"
 #include "ClientSession.h"
 #include "ClientSessionMgr.h"
@@ -8,10 +7,6 @@
 #include "Opcodes.h"
 #include "Language.h"
 #include "SocialMgr.h"
-
-#include "Channel.h"
-#include "ChannelMgr.h"
-#include "Chat.h"
 
 #include "Creatures.h"
 #include "Items.h"
@@ -64,7 +59,7 @@ enum CharacterCustomizeFlags
 };
 
 Player::Player (ClientSession *session, uint64 GUID): 
-m_session(session), m_PackGUID(sizeof(uint64)+1), m_achievementMgr(this), m_GUID(GUID)
+m_session(session), m_PackGUID(sizeof(uint64)+1), m_GUID(GUID)
 {
     m_GUIDLow = 0;
     m_valuesCount = PLAYER_END;
@@ -128,7 +123,7 @@ bool Player::LoadFromDB(uint32 guid, SQLQueryHolder *holder)
     
     // GM state
     uint32 extraflags = fields[31].GetUInt16();
-    if (!AccountMgr::IsVIPorPlayer(GetSession()->GetSecurity()))
+    if (!AccountMgr::IsPlayerAccount(GetSession()->GetSecurity()))
     {
         switch (sLogon->getIntConfig(CONFIG_GM_LOGIN_STATE))
         {
@@ -181,9 +176,7 @@ bool Player::LoadFromDB(uint32 guid, SQLQueryHolder *holder)
         SetGMChat(false);
         SetAcceptWhispers(true);
     }
-
-    // load achievements before anything else to prevent multiple gains for the same achievement/criteria on every loading (as loading does call UpdateAchievementCriteria)
-    m_achievementMgr.LoadFromDB(holder->GetPreparedResult(PLAYER_LOGIN_QUERY_LOADACHIEVEMENTS), holder->GetPreparedResult(PLAYER_LOGIN_QUERY_LOADCRITERIAPROGRESS));
+     
     // load the socials
     m_social = sSocialMgr->LoadFromDB(holder->GetPreparedResult(PLAYER_LOGIN_QUERY_LOADSOCIALLIST), GetGUIDLow());
 
@@ -192,40 +185,14 @@ bool Player::LoadFromDB(uint32 guid, SQLQueryHolder *holder)
 }
 
 void Player::SendInitialPackets()
-{
-    m_achievementMgr.SendAllAchievementData();
+{ 
 }
 
 void Player::SendDirectMessage(WorldPacket *data)
 {
     m_session->SendPacket(data);
 }
-
-void Player::UpdateAchievementCriteria(AchievementCriteriaTypes type, uint32 miscValue1 /*= 0*/, uint32 miscValue2 /*= 0*/, Unit* unit /*= NULL*/)
-{
-   // GetAchievementMgr().UpdateAchievementCriteria(type, miscValue1, miscValue2, unit);
-}
-
-void Player::CompletedAchievement(AchievementEntry const* entry)
-{
-    GetAchievementMgr().CompletedAchievement(entry);
-}
-
-void Player::ResetAchievementCriteria(AchievementCriteriaTypes type, uint32 miscvalue1, uint32 miscvalue2, bool evenIfCriteriaComplete)
-{
-    GetAchievementMgr().ResetAchievementCriteria(AchievementCriteriaTypes(type), miscvalue1, miscvalue2, evenIfCriteriaComplete);
-}
-
-void Player::ResetAchievement()
-{
-    GetAchievementMgr().Reset();
-}
-
-void Player::SetCriteriaProgress(AchievementCriteriaEntry const* entry, uint32 changeValue, uint8 ptype)
-{
-    GetAchievementMgr().SetCriteriaProgress(entry, changeValue, ptype);
-}
-
+ 
 //FlagControl
 void Player::SetFlag(uint32 newFlag)
 {
@@ -258,7 +225,7 @@ void ClientSession::Handle_NODE_PLAYER_CHANGED_ZONE(WorldPacket& recvPacket)
 void Player::UpdateZone(uint32 newZone, uint32 newArea)
 {
     //This could be critical
-    TRINITY_GUARD(ACE_Thread_Mutex, Lock);
+    ACORE_GUARD(ACE_Thread_Mutex, Lock);
     {
         _areaId = newArea;
         _zoneId = newZone;
@@ -299,7 +266,7 @@ void Player::SetGameMaster(bool on)
 |******************** TEAM related stuff ********************|
 \************************************************************/
 uint32 Player::TeamForRace(uint8 race)
-{
+{/*
     if (ChrRacesEntry const* rEntry = sChrRacesStore.LookupEntry(race))
     {
         switch (rEntry->TeamID)
@@ -312,7 +279,8 @@ uint32 Player::TeamForRace(uint8 race)
     else
         sLog->outError("Race (%u) not found in DBC: wrong DBC files?", uint32(race));
 
-    return ALLIANCE;
+    return ALLIANCE;*/
+    return 0;
 }
 
 void Player::setFactionForRace(uint8 race)
@@ -350,17 +318,17 @@ void Player::Whisper(const std::string& text, uint32 language, uint64 receiver)
     }
     else
         // announce to player that player he is whispering to is dnd and cannot receive his message
-        ChatHandler(this).PSendSysMessage(LANG_PLAYER_DND, rPlayer->GetName(), rPlayer->dndMsg.c_str());
+        ;//ChatHandler(this).PSendSysMessage(LANG_PLAYER_DND, rPlayer->GetName(), rPlayer->dndMsg.c_str());
 
     if (!isAcceptWhispers() && !isGameMaster() && !rPlayer->isGameMaster())
     {
         SetAcceptWhispers(true);
-        ChatHandler(this).SendSysMessage(LANG_COMMAND_WHISPERON);
+        //ChatHandler(this).SendSysMessage(LANG_COMMAND_WHISPERON);
     }
 
     // announce to player that player he is whispering to is afk
     if (rPlayer->isAFK())
-        ChatHandler(this).PSendSysMessage(LANG_PLAYER_AFK, rPlayer->GetName(), rPlayer->afkMsg.c_str());
+        ;// ChatHandler(this).PSendSysMessage(LANG_PLAYER_AFK, rPlayer->GetName(), rPlayer->afkMsg.c_str());
 
     // if player whisper someone, auto turn of dnd to be able to receive an answer
     if (isDND() && !rPlayer->isGameMaster())
@@ -394,7 +362,7 @@ bool Player::IsVisibleGloballyFor(Player* u) const
     //    return true;
 
     // GMs are visible for higher gms (or players are visible for gms)
-    if (!AccountMgr::IsVIPorPlayer(u->GetSession()->GetSecurity()))
+    if (!AccountMgr::IsPlayerAccount(u->GetSession()->GetSecurity()))
         return GetSession()->GetSecurity() <= u->GetSession()->GetSecurity();
 
     // non faction visibility non-breakable for non-GMs
@@ -516,7 +484,7 @@ bool Player::BuildEnumData(PreparedQueryResult result, WorldPacket* data)
     *data << uint32(petLevel);
     *data << uint32(petFamily);
 
-    Tokens equipment(fields[19].GetString(), ' ');
+    Tokenizer equipment(fields[19].GetString(), ' ');
     for (uint8 slot = 0; slot < INVENTORY_SLOT_BAG_END; ++slot)
     {
         uint32 visualBase = slot * 2;
@@ -530,6 +498,10 @@ bool Player::BuildEnumData(PreparedQueryResult result, WorldPacket* data)
             continue;
         }
 
+        *data << uint32(proto->DisplayInfoID);
+        *data << uint8(proto->InventoryType);
+
+        /*
         SpellItemEnchantmentEntry const* enchant = NULL;
 
         uint32 enchants = GetUInt32ValueFromArray(equipment, visualBase + 1);
@@ -544,16 +516,17 @@ bool Player::BuildEnumData(PreparedQueryResult result, WorldPacket* data)
             if (enchant)
                 break;
         }
-
-        *data << uint32(proto->DisplayInfoID);
-        *data << uint8(proto->InventoryType);
+         
         *data << uint32(enchant ? enchant->aura_id : 0);
+        */
+         
+        *data << uint32(0); // enchant
     }
 
     return true;
 }
 
-uint32 Player::GetUInt32ValueFromArray(Tokens const& data, uint16 index)
+uint32 Player::GetUInt32ValueFromArray(Tokenizer const& data, uint16 index)
 {
     if (index >= data.size())
         return 0;
@@ -596,9 +569,9 @@ void Player::CleanupChannels()
     {
         Channel* ch = *m_channels.begin();
         m_channels.erase(m_channels.begin());               // remove from player's channel list
-        ch->Leave(GetGUID(), false);                        // not send to client, not remove from player's channel list
-        if (ChannelMgr* cMgr = channelMgr(GetTeam()))
-            cMgr->LeftChannel(ch->GetName());               // deleted channel if empty
+        //ch->Leave(GetGUID(), false);                        // not send to client, not remove from player's channel list
+        //if (ChannelMgr* cMgr = channelMgr(GetTeam()))
+            //cMgr->LeftChannel(ch->GetName());               // deleted channel if empty
     }
     sLog->outDebug(LOG_FILTER_CHATSYS, "Player: channels cleaned up!");
 }

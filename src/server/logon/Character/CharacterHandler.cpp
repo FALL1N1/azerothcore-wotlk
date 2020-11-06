@@ -34,14 +34,14 @@ bool LoginQueryHolder::Initialize()
     stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER);
     stmt->setUInt32(0, lowGuid);
     res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOADFROM, stmt);
+     
+    //stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_GROUP_MEMBER);
+    //stmt->setUInt32(0, lowGuid);
+    //res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOADGROUP, stmt);
 
-    stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_GROUP_MEMBER);
-    stmt->setUInt32(0, lowGuid);
-    res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOADGROUP, stmt);
-
-    stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_INSTANCE);
-    stmt->setUInt32(0, lowGuid);
-    res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOADBOUNDINSTANCES, stmt);
+    //stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_INSTANCE);
+    //stmt->setUInt32(0, lowGuid);
+    //res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOADBOUNDINSTANCES, stmt);
 
     stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_AURAS);
     stmt->setUInt32(0, lowGuid);
@@ -103,13 +103,13 @@ bool LoginQueryHolder::Initialize()
         res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOADDECLINEDNAMES, stmt);
     }
 
-    stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_GUILD_MEMBER);
-    stmt->setUInt32(0, lowGuid);
-    res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOADGUILD, stmt);
+    //stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_GUILD_MEMBER);
+    //stmt->setUInt32(0, lowGuid);
+    //res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOADGUILD, stmt);
 
-    stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_ARENAINFO);
-    stmt->setUInt32(0, lowGuid);
-    res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOADARENAINFO, stmt);
+    //stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_ARENAINFO);
+    //stmt->setUInt32(0, lowGuid);
+    //res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOADARENAINFO, stmt);
 
     stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_ACHIEVEMENTS);
     stmt->setUInt32(0, lowGuid);
@@ -123,9 +123,9 @@ bool LoginQueryHolder::Initialize()
     stmt->setUInt32(0, lowGuid);
     res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOADEQUIPMENTSETS, stmt);
 
-    stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_BGDATA);
-    stmt->setUInt32(0, lowGuid);
-    res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOADBGDATA, stmt);
+    //stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_BGDATA);
+    //stmt->setUInt32(0, lowGuid);
+    //res &= SetPreparedQuery(PLAYER_LOGIN_QUERY_LOADBGDATA, stmt);
 
     stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_GLYPHS);
     stmt->setUInt32(0, lowGuid);
@@ -340,7 +340,7 @@ void ClientSession::Handle_SMSG_LOGOUT_COMPLETE(WorldPacket& recvPacket)
 
     PlayerLogout();
 
-    //Wird im laufe der Entwicklung geändert...
+    //Wird im laufe der Entwicklung geÃ¤ndert...
     WorldPacket data(SMSG_LOGOUT_COMPLETE, 0);
     SendPacket(&data);
 
@@ -351,7 +351,7 @@ void ClientSession::Handle_SMSG_LOGOUT_COMPLETE(WorldPacket& recvPacket)
         _sessionflags = 0;
         _nodeId = 0;
 
-        //Zurück zum Master
+        //ZurÃ¼ck zum Master
         _nodeId = sRoutingHelper->ConnectToMaster();
         if (_nodeId == 0)
             _reconnect_timer = 2000000;

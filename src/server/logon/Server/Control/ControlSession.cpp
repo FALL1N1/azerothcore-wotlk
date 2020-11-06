@@ -18,7 +18,7 @@ ControlSession::ControlSession(uint32 NodeID, uint8 NodeType) :_nodeId(NodeID), 
     m_Socket = NULL;
     m_Logout = false;
 
-    if (ControlSocket *socket = sControlSocketConnector->OpenConnection(NodeID))
+    if (ControlSocket *socket = sControlSocketConnector->OpenConnection(NodeID, "127.0.0.1"))
     {
         socket->add_reference();
 
@@ -61,7 +61,7 @@ bool ControlSession::Update(uint32 diff)
             _reconnect_timer = 2000;
             if (sRoutingHelper->CheckNodeID(_nodeId))
             {
-                if (ControlSocket *socket = sControlSocketConnector->OpenConnection(_nodeId))
+                if (ControlSocket *socket = sControlSocketConnector->OpenConnection(_nodeId, "127.0.0.1"))
                 {
                     socket->add_reference();
                     m_Socket = socket;
@@ -180,12 +180,12 @@ void ControlSession::Handle_SMSG_AUTH_RESPONSE(WorldPacket &recv_data)
         SetFlag(CTL_FLAG_NODE_AUTHED, true);
 
         //Pool-Node muss nicht initialisiert werden
-        if (_nodeType == NODE_TYPE_POOL)
+        //if (_nodeType == NODE_TYPE_POOL)
         {
-            sRoutingHelper->SetNodeOnline(_nodeId);
-            return;
+            //sRoutingHelper->SetNodeOnline(_nodeId);
+            //return;
         }
-        else
+        //else
             SendInitAuthedNode();
     }
     else

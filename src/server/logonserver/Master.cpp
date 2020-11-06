@@ -24,8 +24,7 @@
 
 #include <ace/Sig_Handler.h>
 
-#include "Common.h"
-#include "SystemConfig.h"
+#include "Common.h" 
 #include "SignalHandler.h"
 #include "Logon.h"
 #include "LogonRunnable.h"
@@ -42,21 +41,15 @@
 //#include "RARunnable.h"
 //#include "TCSoap.h"
 #include "Timer.h"
-#include "Util.h"
-#include "AuthSocket.h"
+#include "Util.h" 
 #include "RealmList.h"
 
 #include "BigNumber.h"
 
 #include "Network.h"
 
-#ifdef _WIN32
-#include "ServiceWin32.h"
-extern int m_ServiceStatus;
-#endif
-
 /// Handle cored's termination signals
-class CoredSignalHandler : public Trinity::SignalHandler
+class CoredSignalHandler : public acore::SignalHandler
 {
     public:
         virtual void HandleSignal(int SigNum)
@@ -67,17 +60,13 @@ class CoredSignalHandler : public Trinity::SignalHandler
                     Logon::StopNow(RESTART_EXIT_CODE);
                     break;
                 case SIGTERM:
-                #ifdef _WIN32
-                case SIGBREAK:
-                    if (m_ServiceStatus != 1)
-                #endif /* _WIN32 */
                     Logon::StopNow(SHUTDOWN_EXIT_CODE);
                     break;
             }
         }
 };
 
-class FreezeDetectorRunnable : public ACE_Based::Runnable
+class FreezeDetectorRunnable : public acore::Runnable
 {
 public:
     FreezeDetectorRunnable() { _delaytime = 0; }
@@ -96,7 +85,7 @@ public:
         w_lastchange = 0;
         while (!Logon::IsStopped())
         {
-            ACE_Based::Thread::Sleep(1000);
+            acore::Thread::Sleep(1000);
             uint32 curtime = getMSTime();
             // normal work
             if (w_loops != Logon::m_logonLoopCounter)
@@ -129,17 +118,7 @@ int Master::Run()
     BigNumber seed1;
     seed1.SetRand(16 * 8);
 
-    sLog->outString("   #   #            __");
-    sLog->outString("   #   #        (__/  )               /)");
-    sLog->outString("  #######         / _/_ __  _  _   _ (/_  _  __  __ ");
-    sLog->outString(" ## ### ##     ) /  (__/ (_(_(_(_(/ /_) _(/_/ (_/ (_(_/_");
-    sLog->outString("###########   (_/                         C O R E  .-/");
-    sLog->outString("# ####### #                                       (_/");
-    sLog->outString("# #     # #");
-    sLog->outString("   ## ##");
-    sLog->outString("\n");
-
-    sLog->outString("%s%s%s (logonserver-daemon)", _FULLVERSION_A, git::getProduktVersionStr(), _FULLVERSION_B);
+    sLog->outString(" logonserver initialized "); 
     sLog->outString("<Ctrl-C> to stop.\n");
 
 #ifdef USE_SFMT_FOR_RNG
@@ -150,7 +129,7 @@ int Master::Run()
 #endif //USE_SFMT_FOR_RNG
 
     /// worldd PID file creation
-    std::string pidfile = ConfigMgr::GetStringDefault("PidFile", "");
+    std::string pidfile = sConfigMgr->GetStringDefault("PidFile", "");
     if (!pidfile.empty())
     {
         uint32 pid = CreatePIDFile(pidfile);
@@ -188,29 +167,26 @@ int Master::Run()
     #endif /* _WIN32 */
 
     ///- Launch WorldRunnable thread
-    ACE_Based::Thread world_thread(new LogonRunnable);
-    world_thread.setPriority(ACE_Based::Highest);
+    acore::Thread world_thread(new LogonRunnable);
+    world_thread.setPriority(acore::Priority_Highest);
 
-    ACE_Based::Thread* cliThread = NULL;
+    acore::Thread* cliThread = NULL;
 
-#ifdef _WIN32
-    if (ConfigMgr::GetBoolDefault("Console.Enable", true) && (m_ServiceStatus == -1)/* need disable console in service mode*/)
-#else
-    if (ConfigMgr::GetBoolDefault("Console.Enable", true))
-#endif
+    if (sConfigMgr->GetBoolDefault("Console.Enable", true))
+
     {
         ///- Launch CliRunnable thread
-        cliThread = new ACE_Based::Thread(new CliRunnable);
+        cliThread = new acore::Thread(new CliRunnable);
     }
 
-    //ACE_Based::Thread rar_thread(new RARunnable);
+    //acore::Thread rar_thread(new RARunnable);
 
     ///- Handle affinity for multiple processors and process priority on Windows
     #ifdef _WIN32
     {
         HANDLE hProcess = GetCurrentProcess();
 
-        uint32 Aff = ConfigMgr::GetIntDefault("UseProcessors", 0);
+        uint32 Aff = sConfigMgr->GetIntDefault("UseProcessors", 0);
         if (Aff > 0)
         {
             ULONG_PTR appAff;
@@ -235,7 +211,7 @@ int Master::Run()
             sLog->outString();
         }
 
-        bool Prio = ConfigMgr::GetBoolDefault("ProcessPriority", false);
+        bool Prio = sConfigMgr->GetBoolDefault("ProcessPriority", false);
 
         //if (Prio && (m_ServiceStatus == -1)  /* need set to default process priority class in service mode*/)
         if (Prio)
@@ -249,20 +225,20 @@ int Master::Run()
     }
     #endif
     //Start soap serving thread
-    ACE_Based::Thread* soap_thread = NULL;
+    acore::Thread* soap_thread = NULL;
 
     ///- Start up freeze catcher thread
-    if (uint32 freeze_delay = ConfigMgr::GetIntDefault("MaxCoreStuckTime", 0))
+    if (uint32 freeze_delay = sConfigMgr->GetIntDefault("MaxCoreStuckTime", 0))
     {
         FreezeDetectorRunnable *fdr = new FreezeDetectorRunnable();
         fdr->SetDelayTime(freeze_delay * 1000);
-        ACE_Based::Thread freeze_thread(fdr);
-        freeze_thread.setPriority(ACE_Based::Highest);
+        acore::Thread freeze_thread(fdr);
+        freeze_thread.setPriority(acore::Priority_Highest);
     }
 
     ///- Launch the world listener socket
     uint16 wsport = sLogon->getIntConfig(CONFIG_PORT_LOGON);
-    std::string bind_ip = ConfigMgr::GetStringDefault("BindIP", "0.0.0.0");
+    std::string bind_ip = sConfigMgr->GetStringDefault("BindIP", "0.0.0.0");
 
     if (sNetworkMgr->open() < 0)
     {
@@ -373,14 +349,14 @@ bool Master::_StartDB()
     std::string dbstring;
     uint8 async_threads, synch_threads;
 
-    dbstring = ConfigMgr::GetStringDefault("WorldDatabaseInfo", "");
+    dbstring = sConfigMgr->GetStringDefault("WorldDatabaseInfo", "");
     if (dbstring.empty())
     {
         sLog->outError("World database not specified in configuration file");
         return false;
     }
 
-    async_threads = ConfigMgr::GetIntDefault("WorldDatabase.WorkerThreads", 1);
+    async_threads = sConfigMgr->GetIntDefault("WorldDatabase.WorkerThreads", 1);
     if (async_threads < 1 || async_threads > 32)
     {
         sLog->outError("World database: invalid number of worker threads specified. "
@@ -388,7 +364,7 @@ bool Master::_StartDB()
         return false;
     }
 
-    synch_threads = ConfigMgr::GetIntDefault("WorldDatabase.SynchThreads", 1);
+    synch_threads = sConfigMgr->GetIntDefault("WorldDatabase.SynchThreads", 1);
     ///- Initialise the world database
     if (!WorldDatabase.Open(dbstring, async_threads, synch_threads))
     {
@@ -397,14 +373,14 @@ bool Master::_StartDB()
     }
 
     ///- Get character database info from configuration file
-    dbstring = ConfigMgr::GetStringDefault("CharacterDatabaseInfo", "");
+    dbstring = sConfigMgr->GetStringDefault("CharacterDatabaseInfo", "");
     if (dbstring.empty())
     {
         sLog->outError("Character database not specified in configuration file");
         return false;
     }
 
-    async_threads = ConfigMgr::GetIntDefault("CharacterDatabase.WorkerThreads", 1);
+    async_threads = sConfigMgr->GetIntDefault("CharacterDatabase.WorkerThreads", 1);
     if (async_threads < 1 || async_threads > 32)
     {
         sLog->outError("Character database: invalid number of worker threads specified. "
@@ -412,7 +388,7 @@ bool Master::_StartDB()
         return false;
     }
 
-    synch_threads = ConfigMgr::GetIntDefault("CharacterDatabase.SynchThreads", 2);
+    synch_threads = sConfigMgr->GetIntDefault("CharacterDatabase.SynchThreads", 2);
 
     ///- Initialise the Character database
     if (!CharacterDatabase.Open(dbstring, async_threads, synch_threads))
@@ -422,14 +398,14 @@ bool Master::_StartDB()
     }
 
     ///- Get login database info from configuration file
-    dbstring = ConfigMgr::GetStringDefault("LoginDatabaseInfo", "");
+    dbstring = sConfigMgr->GetStringDefault("LoginDatabaseInfo", "");
     if (dbstring.empty())
     {
         sLog->outError("Login database not specified in configuration file");
         return false;
     }
 
-    async_threads = ConfigMgr::GetIntDefault("LoginDatabase.WorkerThreads", 1);
+    async_threads = sConfigMgr->GetIntDefault("LoginDatabase.WorkerThreads", 1);
     if (async_threads < 1 || async_threads > 32)
     {
         sLog->outError("Login database: invalid number of worker threads specified. "
@@ -437,7 +413,7 @@ bool Master::_StartDB()
         return false;
     }
 
-    synch_threads = ConfigMgr::GetIntDefault("LoginDatabase.SynchThreads", 1);
+    synch_threads = sConfigMgr->GetIntDefault("LoginDatabase.SynchThreads", 1);
     ///- Initialise the login database
     if (!LoginDatabase.Open(dbstring, async_threads, synch_threads))
     {
@@ -446,14 +422,14 @@ bool Master::_StartDB()
     }
 
     ///- Get logon database info from configuration file
-    dbstring = ConfigMgr::GetStringDefault("LogonDatabaseInfo", "");
+    dbstring = sConfigMgr->GetStringDefault("LogonDatabaseInfo", "");
     if (dbstring.empty())
     {
         sLog->outError("Logon database not specified in configuration file");
         return false;
     }
 
-    async_threads = ConfigMgr::GetIntDefault("LogonDatabase.WorkerThreads", 1);
+    async_threads = sConfigMgr->GetIntDefault("LogonDatabase.WorkerThreads", 1);
     if (async_threads < 1 || async_threads > 32)
     {
         sLog->outError("Logon database: invalid number of worker threads specified. "
@@ -461,7 +437,7 @@ bool Master::_StartDB()
         return false;
     }
 
-    synch_threads = ConfigMgr::GetIntDefault("LogonDatabase.SynchThreads", 1);
+    synch_threads = sConfigMgr->GetIntDefault("LogonDatabase.SynchThreads", 1);
     ///- Initialise the logon database
     if (!LogonDatabase.Open(dbstring, async_threads, synch_threads))
     {
@@ -470,14 +446,14 @@ bool Master::_StartDB()
     }
 
     ///- Get log database info from configuration file
-    dbstring = ConfigMgr::GetStringDefault("LogDatabaseInfo", "");
+    dbstring = sConfigMgr->GetStringDefault("LogDatabaseInfo", "");
     if (dbstring.empty())
     {
         sLog->outError("Log database not specified in configuration file");
         return false;
     }
 
-    async_threads = ConfigMgr::GetIntDefault("LogDatabase.WorkerThreads", 1);
+    async_threads = sConfigMgr->GetIntDefault("LogDatabase.WorkerThreads", 1);
     if (async_threads < 1 || async_threads > 32)
     {
         sLog->outError("Log database: invalid number of worker threads specified. "
@@ -485,16 +461,8 @@ bool Master::_StartDB()
         return false;
     }
 
-    synch_threads = ConfigMgr::GetIntDefault("LogDatabase.SynchThreads", 1);
-    ///- Initialise the log database
-    if (!LogDatabase.Open(dbstring, async_threads, synch_threads))
-    {
-        sLog->outError("Cannot connect to log database %s", dbstring.c_str());
-        return false;
-    }
-
     ///- Get the realm Id from the configuration file
-    realmID = ConfigMgr::GetIntDefault("RealmID", 0);
+    realmID = sConfigMgr->GetIntDefault("RealmID", 0);
     if (!realmID)
     {
         sLog->outError("Realm ID not defined in configuration file");
@@ -503,15 +471,11 @@ bool Master::_StartDB()
     sLog->outString("Realm running as realm ID %d", realmID);
 
     ///- Initialize the DB logging system
-    sLog->SetLogDBLater(ConfigMgr::GetBoolDefault("EnableLogDB", false)); // set var to enable DB logging once startup finished.
     sLog->SetLogDB(false);
     sLog->SetRealmID(realmID);
 
     ///- Clean the database before starting
     clearOnlineAccounts();
-
-    ///- Insert version info into DB
-    WorldDatabase.PExecute("UPDATE version SET core_version = '%s%s%s', core_revision = '%s'", _FULLVERSION_A, git::getProduktVersionStr(), _FULLVERSION_B, git::getHash());
 
     sLogon->LoadDBVersion();
 

@@ -266,7 +266,7 @@ std::string CalculateShaPassHash(std::string& name, std::string& password)
     sha.Finalize();
 
     std::string encoded;
-    hexEncodeByteArray(sha.GetDigest(), sha.GetLength(), encoded);
+    encoded = ByteArrayToHexStr(sha.GetDigest(), sha.GetLength());
 
     return encoded;
 }
@@ -274,16 +274,6 @@ std::string CalculateShaPassHash(std::string& name, std::string& password)
 bool IsPlayerAccount(uint32 gmlevel)
 {
     return gmlevel == SEC_PLAYER;
-}
-
-bool IsVIPAccount(uint32 gmlevel)
-{
-    return gmlevel == SEC_VIP;
-}
-
-bool IsVIPorPlayer(uint32 gmlevel)
-{
-    return gmlevel <= SEC_VIP;
 }
 
 bool IsModeratorAccount(uint32 gmlevel)

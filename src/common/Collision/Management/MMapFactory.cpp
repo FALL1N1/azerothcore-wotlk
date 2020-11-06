@@ -26,7 +26,7 @@ namespace MMAP
     bool MMapFactory::IsPathfindingEnabled(const Map* map)
     {
         if (!map) return false;
-        return !forbiddenMaps[map->GetId()] && (sWorld->getBoolConfig(CONFIG_ENABLE_MMAPS) ? true : map->IsBattlegroundOrArena());
+        return !forbiddenMaps[map->GetId()] ? true : map->IsBattlegroundOrArena();
     }
 
     void MMapFactory::InitializeDisabledMaps()

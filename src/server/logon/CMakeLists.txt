@@ -53,7 +53,7 @@ target_include_directories(logon
 target_link_libraries(logon
   PRIVATE
     logon-interface
-    scripts-interface)
+	common)
 
 set_target_properties(logon
   PROPERTIES

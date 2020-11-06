@@ -8,8 +8,7 @@
 #include "BigNumber.h"
 #include "SHA1.h"
 #include "zlib.h"
-#include "Player.h"
-#include "AchievementMgr.h"
+#include "Player.h" 
 #include "AccountMgr.h"
 #include "ObjectMgr.h"
 #include "ClusterDefines.h"
@@ -36,13 +35,13 @@ void ClientSession::HandleWhoisOpcode(WorldPacket& recv_data)
 
     if (!AccountMgr::IsAdminAccount(GetSecurity()))
     {
-        SendNotification(LANG_YOU_NOT_HAVE_PERMISSION);
+        //SendNotification(LANG_YOU_NOT_HAVE_PERMISSION);
         return;
     }
 
     if (charname.empty() || !normalizePlayerName (charname))
     {
-        SendNotification(LANG_NEED_CHARACTER_NAME);
+        //SendNotification(LANG_NEED_CHARACTER_NAME);
         return;
     }
 
@@ -50,7 +49,7 @@ void ClientSession::HandleWhoisOpcode(WorldPacket& recv_data)
 
     if (!player)
     {
-        SendNotification(LANG_PLAYER_NOT_EXIST_OR_OFFLINE, charname.c_str());
+        //SendNotification(LANG_PLAYER_NOT_EXIST_OR_OFFLINE, charname.c_str());
         return;
     }
 
@@ -64,7 +63,7 @@ void ClientSession::HandleWhoisOpcode(WorldPacket& recv_data)
 
     if (!result)
     {
-        SendNotification(LANG_ACCOUNT_FOR_PLAYER_NOT_FOUND, charname.c_str());
+        //SendNotification(LANG_ACCOUNT_FOR_PLAYER_NOT_FOUND, charname.c_str());
         return;
     }
 
@@ -94,7 +93,7 @@ void ClientSession::Handle_NODE_PLAYER_DATA(WorldPacket& data)
     uint32 action;
     data >> action;
 
-    switch (action)
+    /*switch (action)
     {
         case CL_DEF_COMPLETED_ACHIEVEMENT:
             uint32 id;
@@ -129,7 +128,7 @@ void ClientSession::Handle_NODE_PLAYER_DATA(WorldPacket& data)
                 player->SetCriteriaProgress(t_entry, changeValue, ptype);
             delete t_entry;
             break;
-    }
+    }*/
 }
 
 void ClientSession::Handle_NODE_MISC_DATA(WorldPacket& recvPacket)

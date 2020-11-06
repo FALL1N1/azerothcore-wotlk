@@ -247,6 +247,17 @@ public:
         return data.value == NULL;
     }
 
+    bool IsNumeric() const
+    {
+        return (data.type == MYSQL_TYPE_TINY ||
+                data.type == MYSQL_TYPE_SHORT ||
+                data.type == MYSQL_TYPE_INT24 ||
+                data.type == MYSQL_TYPE_LONG ||
+                data.type == MYSQL_TYPE_FLOAT ||
+                data.type == MYSQL_TYPE_DOUBLE ||
+                data.type == MYSQL_TYPE_LONGLONG );
+    }
+
 protected:
     Field();
     ~Field();
@@ -332,18 +343,7 @@ protected:
     {
         return data.type == type;
     }
-
-    bool IsNumeric() const
-    {
-        return (data.type == MYSQL_TYPE_TINY ||
-                data.type == MYSQL_TYPE_SHORT ||
-                data.type == MYSQL_TYPE_INT24 ||
-                data.type == MYSQL_TYPE_LONG ||
-                data.type == MYSQL_TYPE_FLOAT ||
-                data.type == MYSQL_TYPE_DOUBLE ||
-                data.type == MYSQL_TYPE_LONGLONG );
-    }
-
+ 
 private:
 #ifdef ACORE_DEBUG
     static char const* FieldTypeToString(enum_field_types type)

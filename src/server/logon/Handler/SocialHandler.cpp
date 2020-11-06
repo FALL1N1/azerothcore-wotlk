@@ -29,8 +29,9 @@ void ClientSession::HandleAddFriendOpcode(WorldPacket & recv_data)
         return;
 
     sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: %s asked to add friend : '%s'", GetPlayer()->GetPlayerName().c_str(), friendName.c_str());
-
-    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_GUID_RACE_ACC_BY_NAME);
+     
+    //PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_GUID_RACE_ACC_BY_NAME);
+    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_GUID_BY_NAME_FILTER);
 
     stmt->setString(0, friendName);
 
@@ -59,13 +60,13 @@ void ClientSession::HandleAddFriendOpcodeCallBack(PreparedQueryResult result, st
         team = Player::TeamForRace(fields[1].GetUInt8());
         friendAccountId = fields[2].GetUInt32();
 
-        if (!AccountMgr::IsVIPorPlayer(GetSecurity()) || sLogon->getBoolConfig(CONFIG_ALLOW_GM_FRIEND) || AccountMgr::IsVIPorPlayer(AccountMgr::GetSecurity(friendAccountId, realmID)))
+        if (!AccountMgr::IsPlayerAccount(GetSecurity()) || sLogon->getBoolConfig(CONFIG_ALLOW_GM_FRIEND) || AccountMgr::IsPlayerAccount(AccountMgr::GetSecurity(friendAccountId, realmID)))
         {
             if (friendGuid)
             {
                 if (friendGuid == GetPlayer()->GetGUID())
                     friendResult = FRIEND_SELF;
-                else if (GetPlayer()->GetTeam() != team && !sLogon->getBoolConfig(CONFIG_ALLOW_TWO_SIDE_ADD_FRIEND) && AccountMgr::IsVIPorPlayer(GetSecurity()) && !AccountMgr::IsVIPAccount(GetSecurity()))
+                else if (GetPlayer()->GetTeam() != team && !sLogon->getBoolConfig(CONFIG_ALLOW_TWO_SIDE_ADD_FRIEND) && AccountMgr::IsPlayerAccount(GetSecurity()) && !AccountMgr::IsPlayerAccount(GetSecurity()))
                     friendResult = FRIEND_ENEMY;
                 else if (GetPlayer()->GetSocial()->HasFriend(GUID_LOPART(friendGuid)))
                     friendResult = FRIEND_ALREADY;
@@ -121,7 +122,7 @@ void ClientSession::HandleAddIgnoreOpcode(WorldPacket & recv_data)
     sLog->outDebug(LOG_FILTER_NETWORKIO, "LOGON: %s asked to Ignore: '%s'",
         GetPlayer()->GetPlayerName().c_str(), ignoreName.c_str());
 
-    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_GUID_BY_NAME);
+    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_GUID_BY_NAME_FILTER); // CHAR_SEL_GUID_BY_NAME
 
     stmt->setString(0, ignoreName);
 

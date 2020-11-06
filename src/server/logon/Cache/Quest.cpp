@@ -3,7 +3,6 @@
 #include "Opcodes.h"
 #include "ClientSession.h"
 #include "LocalesMgr.h"
-#include "Formulas.h"
 
 void Quest::WarmingCache()
 {
@@ -85,7 +84,7 @@ QuestTemplate const* Quest::GetQuestTemplate(uint32 entry)
 void Quest::CacheQuestTemplate(QuestTemplate* quest)
 {
     //To prevent a crash we should set an Mutex here
-    TRINITY_WRITE_GUARD(ACE_RW_Thread_Mutex, rwMutex_);
+    ACORE_WRITE_GUARD(ACE_RW_Thread_Mutex, rwMutex_);
 
     QuestTemplate* _quest = _questTemplateStore[quest->Id];
     _quest = quest;
@@ -160,7 +159,7 @@ void ClientSession::HandleQuestQueryOpcode(WorldPacket & recv_data)
         data << int32(quest->GetRewSpellCast());                // casted spell
 
         // rewarded honor points
-        data << Trinity::Honor::hk_honor_at_level(GetPlayer()->getLevel(), quest->GetRewHonorMultiplier());
+        data << float(0);
         data << float(0);                                       // new reward honor (multipled by ~62 at client side)
         data << uint32(quest->GetSrcItemId());                  // source item id
         data << uint32(quest->GetFlags() & 0xFFFF);             // quest flags

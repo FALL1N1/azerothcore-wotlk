@@ -3,12 +3,10 @@
 
 #include <atomic>
 
-#include "Logon.h"
-#include "AddonMgr.h"
+#include "Logon.h" 
 #include "DatabaseEnv.h"
 #include "ByteBuffer.h"
 #include "Logon.h"
-#include "WardenHandler.h"
 
 //DEPS
 #include "Groups.h"
@@ -97,14 +95,7 @@ public:
     {
         KickPlayer();
         _banned = true;
-    }
-
-    /*********************************************************/
-    /***                     ADDON                         ***/
-    /*********************************************************/
-    void ReadAddonsInfo(WorldPacket &data);
-    void SendAddonsInfo();
-
+    } 
     /*********************************************************/
     /***                  I/O HANDLING                     ***/
     /*********************************************************/
@@ -143,9 +134,7 @@ public:
     void SendAuthResponse(uint8 code, bool shortForm, uint32 queuePos = 0);
     void SendClientCacheVersion(uint32 version);
     void SendPlayerNotFoundNotice(std::string name);
-    void SendWrongFactionNotice();
-    void SendNotification(const char *format, ...) ATTR_PRINTF(2, 3);
-    void SendNotification(uint32 string_id, ...);
+    void SendWrongFactionNotice(); 
     void SendPartyResult(PartyOperation operation, const std::string& member, PartyResult res, uint32 val = 0);
     void SendPlayerLogin();
 
@@ -200,9 +189,7 @@ public:
     }
 
     void SaveTutorialsData(SQLTransaction& trans);
-
-    //Warden
-    void InitWarden(BigNumber *K);
+     
 
     void SetStunned(bool apply);
 
@@ -216,8 +203,7 @@ public:
     void HandlePlayerLoginOpcode(WorldPacket& recvPacket);
     void HandlePlayerLogin(LoginQueryHolder * holder);
     void HandlePlayerLogoutRequest(WorldPacket& recv_data);
-    void HandleLogoutCancelOpcode(WorldPacket& recv_data);
-    void HandleWardenDataOpcode(WorldPacket& recv_data);
+    void HandleLogoutCancelOpcode(WorldPacket& recv_data); 
     void HandleWorldStateUITimerUpdate(WorldPacket& /*recv_data*/);
 
     //QueryCache
@@ -227,41 +213,11 @@ public:
     void HandleQuestQueryOpcode(WorldPacket & recv_data);
 
     //Temp use
-    void SMSG_LOGIN_VERIFY_WORLD(WorldPacket& recvPacket);
+    //void SMSG_LOGIN_VERIFY_WORLD(WorldPacket& recvPacket);
 
     //Groups
     void HandleGroupInviteOpcode(WorldPacket& recvPacket);
-
-    //Channels
-    void HandleJoinChannel(WorldPacket& recvPacket);
-    void HandleLeaveChannel(WorldPacket& recvPacket);
-    void HandleChannelList(WorldPacket& recvPacket);
-    void HandleChannelPassword(WorldPacket& recvPacket);
-    void HandleChannelSetOwner(WorldPacket& recvPacket);
-    void HandleChannelOwner(WorldPacket& recvPacket);
-    void HandleChannelModerator(WorldPacket& recvPacket);
-    void HandleChannelUnmoderator(WorldPacket& recvPacket);
-    void HandleChannelMute(WorldPacket& recvPacket);
-    void HandleChannelUnmute(WorldPacket& recvPacket);
-    void HandleChannelInvite(WorldPacket& recvPacket);
-    void HandleChannelKick(WorldPacket& recvPacket);
-    void HandleChannelBan(WorldPacket& recvPacket);
-    void HandleChannelUnban(WorldPacket& recvPacket);
-    void HandleChannelAnnouncements(WorldPacket& recvPacket);
-    void HandleChannelDisplayListQuery(WorldPacket& recvPacket);
-    void HandleGetChannelMemberCount(WorldPacket& recvPacket);
-    void HandleSetChannelWatch(WorldPacket& recvPacket);
-
-    // GM Tickets
-    void HandleGMTicketCreateOpcode(WorldPacket& recvPacket);
-    void HandleGMTicketUpdateOpcode(WorldPacket& recvPacket);
-    void HandleGMTicketDeleteOpcode(WorldPacket& recvPacket);
-    void HandleGMTicketGetTicketOpcode(WorldPacket& recvPacket);
-    void HandleGMTicketSystemStatusOpcode(WorldPacket& recvPacket);
-    void HandleGMSurveySubmit(WorldPacket& recvPacket);
-    void HandleReportLag(WorldPacket& recvPacket);
-    void HandleGMResponseResolve(WorldPacket& recvPacket);
-
+ 
     /************************************************************\
     |******************** SocialHandler stuff *******************|
     \************************************************************/
@@ -275,15 +231,9 @@ public:
     void HandleSetContactNotesOpcode(WorldPacket& recvPacket);
 
     //ClientHandlings
-public:
-    void HandleQueryInspectAchievements(WorldPacket & recv_data);
+public: 
     void HandleWhoisOpcode(WorldPacket& recv_data);
-    void HandleSendMail(WorldPacket & recv_data);
-
-    //Future
-    bool checkMsgForMute(Player* sender, WorldPacket & recv_data);
-    bool checkMsgForCommand(std::string msg, WorldPacket & recv_data);
-    void HandleMessagechatOpcode(WorldPacket & recv_data);
+    void HandleSendMail(WorldPacket & recv_data); 
 
     //NodeHandlings
 public:
@@ -335,8 +285,7 @@ private:
     bool                    _authed;
     uint8                   _expansion;
     AccountTypes            _security;
-    AccountData             _accountData[NUM_ACCOUNT_DATA_TYPES];
-    AddonsList              _addonsList;
+    AccountData             _accountData[NUM_ACCOUNT_DATA_TYPES]; 
 
     ///- TUTORIAL SETTINGS
     bool                    _TutorialsChanged;
@@ -345,10 +294,7 @@ private:
     ///- LOCALES SETTINGS
     LocaleConstant          _sessionDbcLocale;
     LocaleConstant          _sessionDbLocaleIndex;
-
-    // Warden 
-    Warden m_Warden;
-
+     
     //Temp
     ChannelList m_chlist;
 

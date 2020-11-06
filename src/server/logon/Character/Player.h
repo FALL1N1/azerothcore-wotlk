@@ -1,10 +1,10 @@
 #ifndef __PLAYER_H
 #define __PLAYER_H
 
-#include "AchievementMgr.h"
 #include "ClientSession.h"
 #include "ObjectDefines.h"
 #include "UpdateFields.h"
+#include "Util.h"
 
 class ClientSession;
 class Channel;
@@ -175,17 +175,6 @@ class Player
         ClientSession* GetSession() const { return m_session; }
 
         /************************************************************\
-        |****************** ACHIEVES related stuff ******************|
-        \************************************************************/
-        AchievementMgr& GetAchievementMgr() { return m_achievementMgr; }
-        AchievementMgr const& GetAchievementMgr() const { return m_achievementMgr; }
-        void UpdateAchievementCriteria(AchievementCriteriaTypes type, uint32 miscValue1 = 0, uint32 miscValue2 = 0, Unit* unit = NULL);
-        void CompletedAchievement(AchievementEntry const* entry);
-        void ResetAchievementCriteria(AchievementCriteriaTypes type, uint32 miscvalue1, uint32 miscvalue2, bool evenIfCriteriaComplete);
-        void ResetAchievement();
-        void SetCriteriaProgress(AchievementCriteriaEntry const* entry, uint32 changeValue, uint8 ptype);
-        
-        /************************************************************\
         |******************* WHISPER related stuff ******************|
         \************************************************************/
         bool isAcceptWhispers() const { return m_ExtraFlags & PLAYER_EXTRA_ACCEPT_WHISPERS; }
@@ -200,7 +189,7 @@ class Player
         \************************************************************/
         bool IsVisibleGloballyFor(Player* player) const;
         static bool BuildEnumData(PreparedQueryResult result, WorldPacket* data);
-        static uint32 GetUInt32ValueFromArray(Tokens const& data, uint16 index);
+        static uint32 GetUInt32ValueFromArray(Tokenizer const& data, uint16 index);
         bool InArena();
 
         /************************************************************\
@@ -276,9 +265,7 @@ class Player
         uint64 m_GUID;
         std::string m_name;
 
-        uint8 _level;
-
-        AchievementMgr m_achievementMgr; 
+        uint8 _level; 
 
         uint16 m_valuesCount;
         union

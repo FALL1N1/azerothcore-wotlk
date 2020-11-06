@@ -10,11 +10,10 @@
 #include "ClusterDefines.h"
 #include "ObjectMgr.h"
 #include "RoutingHelper.h"
-#include "ProgressBar.h"
 
-// NIX ANFASSEN, ES SEI DENN DU WEIßT WAS DU TUST (UND DAS TUST DU NICHT!)
+// NIX ANFASSEN, ES SEI DENN DU WEIÃŸT WAS DU TUST (UND DAS TUST DU NICHT!)
 
-class item_instance : public ACE_Based::Runnable
+class item_instance : public acore::Runnable
 {
     public:
         void run(void)
@@ -23,7 +22,7 @@ class item_instance : public ACE_Based::Runnable
         }
 };
 
-class character_inventory_thread : public ACE_Based::Runnable
+class character_inventory_thread : public acore::Runnable
 {
     public:
         void run(void)
@@ -106,11 +105,10 @@ void RebaseClass::Begin()
         sLog->outString();
         return;
     }
-    barGoLink bar(result->GetRowCount());
+
     uint32 count = 0;
     do
     {
-        bar.step();
         ++count;
         Field* fields = result->Fetch();
         _ItemMap[fields[0].GetUInt32()] = count;
@@ -118,10 +116,10 @@ void RebaseClass::Begin()
     sLog->outString(">> Loaded %u GUIDs.", count);
 
     sLog->outString("Rebase->ItemInstance-Thread");
-    ACE_Based::Thread t_item_instance(new item_instance);
+    acore::Thread t_item_instance(new item_instance);
 
     sLog->outString("Rebase->CharacterInventory");
-	ACE_Based::Thread t_char_inventory(new character_inventory_thread);
+	acore::Thread t_char_inventory(new character_inventory_thread);
 
     sLog->outString("Rebase->Auctionhouse");
     Auctionhouse();
@@ -695,7 +693,7 @@ std::string RebaseClass::SingleGUID(uint64 offset, uint64 value, Field* fields, 
             ss << "\'" << value << "\'";
         else if (s == "")
         {
-            if (fields[i]._IsNumeric())
+            if (fields[i].IsNumeric())
                 ss << "null";
             else
                 ss << "\'\'";
@@ -726,7 +724,7 @@ std::string RebaseClass::DoubleGUID(uint64 offset, uint64 value, uint64 offsetb,
             ss << "\'" << valueb << "\'";
         else if (s == "")
         {
-            if (fields[i]._IsNumeric())
+            if (fields[i].IsNumeric())
                 ss << "null";
             else
                 ss << "\'\'";

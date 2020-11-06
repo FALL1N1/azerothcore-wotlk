@@ -232,7 +232,7 @@ uint32 RoutingHelper::GetNodeCount()
 
 void RoutingHelper::SetNodeOnline(uint32 Node)
 {
-    TRINITY_GUARD(ACE_Thread_Mutex, i_Lock);
+    ACORE_GUARD(ACE_Thread_Mutex, i_Lock);
     {
         NodeListList::iterator iter = m_nodelist.find(Node);
 
@@ -246,7 +246,7 @@ void RoutingHelper::SetNodeOnline(uint32 Node)
 
 void RoutingHelper::SetNodeOffline(uint32 Node)
 {
-    TRINITY_GUARD(ACE_Thread_Mutex, i_Lock);
+    ACORE_GUARD(ACE_Thread_Mutex, i_Lock);
     {
         NodeListList::iterator iter = m_nodelist.find(Node);
 
@@ -295,7 +295,7 @@ void RoutingHelper::ResetLastGUID()
 
 void RoutingHelper::RefreshOnlineStat()
 {
-    TRINITY_GUARD(ACE_Thread_Mutex, i_Lock);
+    ACORE_GUARD(ACE_Thread_Mutex, i_Lock);
     {
         NodeListList::iterator iter = m_nodelist.begin();
         for (; iter != m_nodelist.end(); ++iter)

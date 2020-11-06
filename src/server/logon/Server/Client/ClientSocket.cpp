@@ -67,11 +67,11 @@ void ClientSocket::_buildAuthChallengePacket(WorldPacket &packet)
 
     BigNumber seed1;
     seed1.SetRand(16 * 8);
-    packet.append(seed1.AsByteArray(16), 16);               // new encryption seeds
+    packet.append(seed1.AsByteArray(16));               // new encryption seeds
 
     BigNumber seed2;
     seed2.SetRand(16 * 8);
-    packet.append(seed2.AsByteArray(16), 16);               // new encryption seeds
+    packet.append(seed2.AsByteArray(16));               // new encryption seeds
 }
 
 uint32 ClientSocket::GetLatency() const
@@ -439,10 +439,7 @@ int ClientSocket::_handleAuthSession(WorldPacket& recvPacket)
     // NOTE ATM the socket is single-threaded, have this in mind ...
     ACE_NEW_RETURN(session, ClientSession(id, this, AccountTypes(security), expansion, mutetime, locale, recruiter, isRecruiter), -1);
 
-    m_Crypt.Init(&k);
-
-    session->ReadAddonsInfo(recvPacket);
-    session->InitWarden(&k);
+    m_Crypt.Init(&k); 
 
     SetAuthenticated();
 

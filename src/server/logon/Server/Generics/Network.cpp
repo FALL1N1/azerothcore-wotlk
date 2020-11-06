@@ -26,20 +26,20 @@ ACE_THR_FUNC_RETURN event_loop(void *arg)
 
 int NetworkMgr::open()
 {
-    _compressionLevel = ConfigMgr::GetIntDefault("Compression", 1);
+    _compressionLevel = sConfigMgr->GetIntDefault("Compression", 1);
 
-    _useNoDelay = ConfigMgr::GetBoolDefault("Network.TcpNodelay", true);
+    _useNoDelay = sConfigMgr->GetBoolDefault("Network.TcpNodelay", true);
 
     // -1 means use default
-    _sockOutKBuff = ConfigMgr::GetIntDefault ("Network.OutKBuff", -1);
-    _sockOutUBuff = ConfigMgr::GetIntDefault ("Network.OutUBuff", 65536);
+    _sockOutKBuff = sConfigMgr->GetIntDefault ("Network.OutKBuff", -1);
+    _sockOutUBuff = sConfigMgr->GetIntDefault ("Network.OutUBuff", 65536);
     if (_sockOutUBuff <= 0)
     {
         sLog->outError("Network.OutUBuff is wrong in your config file");
         return -1;
     }
 
-    _threadsCount = ConfigMgr::GetIntDefault("Network.Threads", 1);
+    _threadsCount = sConfigMgr->GetIntDefault("Network.Threads", 1);
     if (_threadsCount <= 0)
     {
         sLog->outError("Network.Threads is wrong in your config file");

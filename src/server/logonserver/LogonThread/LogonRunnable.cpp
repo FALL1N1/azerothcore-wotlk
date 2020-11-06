@@ -37,11 +37,6 @@
 
 #define LOGON_SLEEP_CONST 50
 
-#ifdef _WIN32
-#include "ServiceWin32.h"
-extern int m_ServiceStatus;
-#endif
-
 /// Heartbeat for the World
 void LogonRunnable::run()
 {
@@ -68,18 +63,11 @@ void LogonRunnable::run()
         if (diff <= LOGON_SLEEP_CONST+prevSleepTime)
         {
             prevSleepTime = LOGON_SLEEP_CONST+prevSleepTime-diff;
-            ACE_Based::Thread::Sleep(prevSleepTime);
+            acore::Thread::Sleep(prevSleepTime);
         }
         else
             prevSleepTime = 0;
 
-        #ifdef _WIN32
-            if (m_ServiceStatus == 0)
-                Logon::StopNow(SHUTDOWN_EXIT_CODE);
-
-            while (m_ServiceStatus == 2)
-                Sleep(1000);
-        #endif
     }
 
     //sWorld->KickAll();                                       // save and kick all players

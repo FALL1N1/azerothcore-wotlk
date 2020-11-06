@@ -26,18 +26,6 @@ void ClientSessionMgr::Start()
     if (num_threads <= 0)
         num_threads = 1;
 
-    PreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_SEL_STATS);
-    stmt->setInt32(0, realmID+1);
-    PreparedQueryResult result = LoginDatabase.Query(stmt);
-    if (result)
-        _MaxPlayerCount = (*result)[0].GetInt32();
-    else
-    {
-        stmt = LoginDatabase.GetPreparedStatement(LOGIN_INS_STATS);
-        stmt->setInt32(0, realmID+1);
-        LoginDatabase.Execute(stmt);
-    }
-
     _SessionThreadsCount = static_cast<size_t> (num_threads);
     _sessionupdater = new SessionUpdater[_SessionThreadsCount];
 
@@ -139,8 +127,7 @@ bool ClientSessionMgr::RemoveQueuedPlayer(ClientSession* sess)
     {
         ClientSession* pop_sess = _QueuedPlayer.front();
         pop_sess->SetInQueue(false);
-        pop_sess->SendAuthWaitQue(0);
-        pop_sess->SendAddonsInfo();
+        pop_sess->SendAuthWaitQue(0); 
         pop_sess->SendClientCacheVersion(sLogon->getIntConfig(CONFIG_CLIENTCACHE_VERSION));
 
         _QueuedPlayer.pop_front();
@@ -303,9 +290,7 @@ void ClientSessionMgr::AddSession_(ClientSession* s)
     }
 
     s->SendAuthResponse(AUTH_OK, true);
-
-    s->SendAddonsInfo();
-
+     
     //s->SendClientCacheVersion(sLogon->getIntConfig(CONFIG_CLIENTCACHE_VERSION));
     //s->SendTutorialsData();
 
@@ -420,7 +405,7 @@ void ClientSessionMgr::SendGameMasterMessage(const char* text, ...)
         if (!itr->second || !itr->second->GetPlayer())
             continue;
 
-        if (AccountMgr::IsVIPorPlayer(itr->second->GetSecurity()))
+        if (AccountMgr::IsPlayerAccount(itr->second->GetSecurity()))
             continue;
 
         itr->second->SendPacket(&data);

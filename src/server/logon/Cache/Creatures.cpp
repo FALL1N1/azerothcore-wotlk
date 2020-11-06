@@ -85,7 +85,7 @@ CreatureTemplate const* Creatures::GetCreatureTemplate(uint32 entry)
 void Creatures::CacheCreatureTemplate(CreatureTemplate* creature)
 {
     //To prevent a crash we should set an Mutex here
-    TRINITY_WRITE_GUARD(ACE_RW_Thread_Mutex, rwMutex_);
+    ACORE_WRITE_GUARD(ACE_RW_Thread_Mutex, rwMutex_);
 
     CreatureTemplate& cre = _creatureTemplateStore[creature->entry];
     cre = *creature;

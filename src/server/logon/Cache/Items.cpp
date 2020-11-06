@@ -184,7 +184,7 @@ ItemTemplate const* Items::GetItemTemplate(uint32 entry)
 void Items::CacheItemTemplate(ItemTemplate* item)
 {
     //To prevent a crash we should set an Mutex here
-    TRINITY_WRITE_GUARD(ACE_RW_Thread_Mutex, rwMutex_);
+    ACORE_WRITE_GUARD(ACE_RW_Thread_Mutex, rwMutex_);
 
     ItemTemplate& _item = _itemTemplateStore[item->ItemId];
     _item = *item;

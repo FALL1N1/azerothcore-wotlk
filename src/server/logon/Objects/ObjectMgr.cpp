@@ -65,7 +65,7 @@ void ObjectMgr::Player_Add(Player* player)
 
 void ObjectMgr::Update()
 {
-    TRINITY_GUARD(ACE_Thread_Mutex, i_objectLock);
+    ACORE_GUARD(ACE_Thread_Mutex, i_objectLock);
     {
         Player* nPlayer;
 
@@ -159,7 +159,7 @@ bool ObjectMgr::GetPlayerNameByGUID(uint64 guid, std::string &name) const
         return true;
     }
 
-    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_NAME);
+    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_NAME_DATA);
 
     stmt->setUInt32(0, GUID_LOPART(guid));
 
@@ -179,7 +179,7 @@ uint64 ObjectMgr::GetPlayerGUIDByName(std::string name) const
 {
     uint64 guid = 0;
 
-    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_GUID_BY_NAME);
+    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_GUID_BY_NAME_FILTER);
 
     stmt->setString(0, name);
 
@@ -193,22 +193,23 @@ uint64 ObjectMgr::GetPlayerGUIDByName(std::string name) const
 
 uint32 ObjectMgr::GetPlayerAccountIdByGUID(uint64 guid) const
 {
+    return 0; // @todo
     // prevent DB access for online player
     if (Player* player = sObjectMgr->GetPlayer(guid))
     {
         return player->GetSession()->GetAccountId();
     }
 
-    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_ACCOUNT_BY_GUID);
+    //PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_ACCOUNT_BY_GUID);
 
-    stmt->setUInt32(0, GUID_LOPART(guid));
+    //stmt->setUInt32(0, GUID_LOPART(guid));
 
-    PreparedQueryResult result = CharacterDatabase.Query(stmt);
+    //PreparedQueryResult result = CharacterDatabase.Query(stmt);
 
-    if (result)
+    //if (result)
     {
-        uint32 acc = (*result)[0].GetUInt32();
-        return acc;
+        //uint32 acc = (*result)[0].GetUInt32();
+        //return acc;
     }
 
     return 0;

@@ -41,7 +41,7 @@ void AutoBroadcast::send()
 
     std::string msg;
 
-    msg = Trinity::Containers::SelectRandomContainerElement(m_Autobroadcasts);
+    msg = acore::Containers::SelectRandomContainerElement(m_Autobroadcasts);
 
     uint32 abcenter = sLogon->getIntConfig(CONFIG_AUTOBROADCAST_CENTER);
 

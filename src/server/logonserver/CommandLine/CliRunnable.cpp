@@ -30,8 +30,7 @@
 #include "ClientSession.h"
 #include "Configuration/Config.h"
 
-#include "AccountMgr.h"
-#include "Chat.h"
+#include "AccountMgr.h" 
 #include "CliRunnable.h"
 #include "Language.h"
 #include "Log.h"
@@ -573,7 +572,7 @@ void CliRunnable::run()
     rl_attempted_completion_function = cli_completion;
     rl_event_hook = cli_hook_func;
     #endif
-    if (ConfigMgr::GetBoolDefault("BeepAtStart", true))
+    if (sConfigMgr->GetBoolDefault("BeepAtStart", true))
         printf("\a");                                       // \a = Alert
 
     // print this here the first time

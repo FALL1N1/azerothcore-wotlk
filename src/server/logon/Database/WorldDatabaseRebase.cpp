@@ -8,8 +8,7 @@
 #include "ControlSessionMgr.h"
 #include "ClusterDefines.h"
 #include "ObjectMgr.h"
-#include "RoutingHelper.h"
-#include "ProgressBar.h"
+#include "RoutingHelper.h" 
 #include "WorldDatabaseRebase.h"
 #include "DatabaseRoutines.h"
 
@@ -27,11 +26,10 @@ void WorldDatabaseRebase::Begin()
         sLog->outString();
         return;
     }
-    barGoLink bar(result->GetRowCount());
+
     uint32 count = 0;
     do
     {
-        bar.step();
         ++count;
         Field* fields = result->Fetch();
         _CreatureGUIDs[fields[0].GetUInt32()] = count;
@@ -76,8 +74,6 @@ void WorldDatabaseRebase::RebaseCreatures()
         return;
     }
 
-    barGoLink bar(result->GetRowCount());
-
     do
     {
         Field* fields = result->Fetch();
@@ -86,7 +82,6 @@ void WorldDatabaseRebase::RebaseCreatures()
         if (itr == _CreatureGUIDs.end())
             continue;
 
-        bar.step();
         new_guid = itr->second;
 
         if (counter == 0)
@@ -122,8 +117,6 @@ void WorldDatabaseRebase::RebaseCreatureAddons()
         return;
     }
 
-    barGoLink bar(result->GetRowCount());
-
     do
     {
         Field* fields = result->Fetch();
@@ -132,7 +125,6 @@ void WorldDatabaseRebase::RebaseCreatureAddons()
         if (itr == _CreatureGUIDs.end())
             continue;
 
-        bar.step();
         new_guid = itr->second;
 
         if (counter == 0)
@@ -166,14 +158,9 @@ void WorldDatabaseRebase::RebaseCreatureFormations()
         return;
     }
 
-    barGoLink bar(result->GetRowCount());
-
     do
     {
         Field* fields = result->Fetch();
-
-        bar.step();
-
         CreatureMap::const_iterator itr = _CreatureGUIDs.find(fields[0].GetUInt32());
         CreatureMap::const_iterator iter_two = _CreatureGUIDs.find(fields[1].GetUInt32());
         if (itr == _CreatureGUIDs.end() || iter_two == _CreatureGUIDs.end())
@@ -212,8 +199,6 @@ void WorldDatabaseRebase::RebaseLinkedRespawn()
         return;
     }
 
-    barGoLink bar(result->GetRowCount());
-
     do
     {
         Field* fields = result->Fetch();
@@ -222,7 +207,6 @@ void WorldDatabaseRebase::RebaseLinkedRespawn()
         if (itr == _CreatureGUIDs.end())
             continue;
 
-        bar.step();
         new_guid = itr->second;
 
         if (counter == 0)

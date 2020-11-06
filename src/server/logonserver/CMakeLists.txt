@@ -23,7 +23,7 @@ if( WIN32 )
 endif()
  
 if (USE_COREPCH)
-  set(PRIVATE_PCH_HEADER PrecompiledHeaders/logonPCH.h)
+  set(PRIVATE_PCH_HEADER PrecompiledHeaders/logonserverPCH.h)
 endif()
 
 # Group sources
@@ -54,19 +54,21 @@ CollectIncludeDirectories(
 target_include_directories(logonserver
   PUBLIC
     ${PUBLIC_INCLUDES}
+	ace
+	logon
+	authserver 
   PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR})
 
 target_link_libraries(logonserver
-  PRIVATE
-    game-interface
+  PRIVATE 
+    logon-interface
   PUBLIC
-    game
-    shared
-    logon
-    scripts
-    gsoap
+    ace  
+    shared 
+	logon 
     readline
+	common
     ${GPERFTOOLS_LIBRARIES})
 
 set_target_properties(logonserver

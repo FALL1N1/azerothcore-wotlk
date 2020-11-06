@@ -28,7 +28,7 @@
 #define __LOGONRUNNABLE_H
 
 /// Heartbeat thread for the World
-class LogonRunnable : public ACE_Based::Runnable
+class LogonRunnable : public acore::Runnable
 {
     public:
         void run();
