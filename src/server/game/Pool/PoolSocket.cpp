@@ -196,11 +196,11 @@ int PoolSocket::open (void *a)
 
     BigNumber seed1;
     seed1.SetRand(16 * 8);
-    packet.append(seed1.AsByteArray(16), 16);               // new encryption seeds
+    packet.append(seed1.AsByteArray(16));               // new encryption seeds
 
     BigNumber seed2;
     seed2.SetRand(16 * 8);
-    packet.append(seed2.AsByteArray(16), 16);               // new encryption seeds
+    packet.append(seed2.AsByteArray(16));               // new encryption seeds
 
     if (SendPacket(packet) == -1)
         return -1;
@@ -614,60 +614,7 @@ int PoolSocket::ProcessIncoming (WorldPacket* new_pct)
     // Dump received packet.
     if (sPacketLog->CanLogPacket())
         sPacketLog->LogPacket(*new_pct, CLIENT_TO_SERVER);
-
-    try
-    {
-        switch (opcode)
-        {
-            case CMSG_PING:
-                return HandlePing (*new_pct);
-            case LOGON_AUTH_MASTER:
-                if (m_Session)
-                {
-                    sLog->outError ("PoolSocket::ProcessIncoming: Player send CMSG_AUTH_SESSION again");
-                    return -1;
-                }
-                return HandleAuthSession (*new_pct);
-            case CMSG_KEEP_ALIVE:
-                sLog->outStaticDebug ("CMSG_KEEP_ALIVE, size: " UI64FMTD, uint64(new_pct->size()));
-                return 0;
-            default:
-            {
-                ACE_GUARD_RETURN (LockType, Guard, m_SessionLock, -1);
-
-                if (m_Session != NULL)
-                {
-                    // OK, give the packet to WorldSession
-                    aptr.release();
-                    // WARNINIG here we call it with locks held.
-                    // Its possible to cause deadlock if QueuePacket calls back
-                    m_Session->QueueServerPacket (new_pct);
-                    return 0;
-                }
-                else
-                {
-                    new_pct->Initialize(SMSG_AUTH_RESPONSE, 1);
-                    *new_pct << uint8(AUTH_REJECT);
-                    SendPacket(*new_pct);
-
-                    sLog->outError ("PoolSocket::ProcessIncoming: Client not authed opcode = %u => rejected", uint32(opcode));
-                    return -1;
-                }
-            }
-        }
-    }
-    catch (ByteBufferException &)
-    {
-        sLog->outError("PoolSocket::ProcessIncoming ByteBufferException occured while parsing an instant handled packet (opcode: %u) from client %s, accountid=%i. Disconnected client.",
-                opcode, GetRemoteAddress().c_str(), m_Session?m_Session->GetServerId():-1);
-        if (sLog->IsOutDebug())
-        {
-            sLog->outDebug(LOG_FILTER_NETWORKIO, "Dumping error causing packet:");
-            new_pct->hexlike();
-        }
-
-        return -1;
-    }
+      
 
     ACE_NOTREACHED (return 0);
 }

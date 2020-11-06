@@ -25,8 +25,7 @@ EndScriptData */
 #include "SkillDiscovery.h"
 #include "SkillExtraItems.h"
 #include "SmartAI.h"
-#include "SpellMgr.h"
-#include "WardenCheckMgr.h"
+#include "SpellMgr.h" 
 #include "WaypointManager.h"
 #include "GameGraveyard.h"
 
@@ -85,7 +84,6 @@ public:
             { "gameobject_questender",        SEC_ADMINISTRATOR, true,  &HandleReloadGOQuestEnderCommand,               "" },
             { "gameobject_loot_template",     SEC_ADMINISTRATOR, true,  &HandleReloadLootTemplatesGameobjectCommand,    "" },
             { "gameobject_queststarter",      SEC_ADMINISTRATOR, true,  &HandleReloadGOQuestStarterCommand,             "" },
-            { "gm_tickets",                   SEC_ADMINISTRATOR, true,  &HandleReloadGMTicketsCommand,                  "" },
             { "gossip_menu",                  SEC_ADMINISTRATOR, true,  &HandleReloadGossipMenuCommand,                 "" },
             { "gossip_menu_option",           SEC_ADMINISTRATOR, true,  &HandleReloadGossipMenuOptionCommand,           "" },
             { "item_enchantment_template",    SEC_ADMINISTRATOR, true,  &HandleReloadItemEnchantementsCommand,          "" },
@@ -139,8 +137,7 @@ public:
             { "spell_target_position",        SEC_ADMINISTRATOR, true,  &HandleReloadSpellTargetPositionCommand,        "" },
             { "spell_threats",                SEC_ADMINISTRATOR, true,  &HandleReloadSpellThreatsCommand,               "" },
             { "spell_group_stack_rules",      SEC_ADMINISTRATOR, true,  &HandleReloadSpellGroupStackRulesCommand,       "" },
-            { "acore_string",                 SEC_ADMINISTRATOR, true,  &HandleReloadAcoreStringCommand,              "" },
-            { "warden_action",                SEC_ADMINISTRATOR, true,  &HandleReloadWardenactionCommand,               "" },
+            { "acore_string",                 SEC_ADMINISTRATOR, true,  &HandleReloadAcoreStringCommand,              "" }, 
             { "waypoint_scripts",             SEC_ADMINISTRATOR, true,  &HandleReloadWpScriptsCommand,                  "" },
             { "waypoint_data",                SEC_ADMINISTRATOR, true,  &HandleReloadWpCommand,                         "" },
             { "vehicle_accessory",            SEC_ADMINISTRATOR, true,  &HandleReloadVehicleAccessoryCommand,           "" },
@@ -151,13 +148,6 @@ public:
             { "reload",         SEC_ADMINISTRATOR,  true,  nullptr,                                                     "", reloadCommandTable }
         };
         return commandTable;
-    }
-
-    //reload commands
-    static bool HandleReloadGMTicketsCommand(ChatHandler* /*handler*/, const char* /*args*/)
-    {
-        sTicketMgr->LoadTickets();
-        return true;
     }
 
     static bool HandleReloadAllCommand(ChatHandler* handler, const char* /*args*/)
@@ -721,21 +711,6 @@ public:
         sLog->outString("Re-Loading acore_string Table!");
         sObjectMgr->LoadAcoreStrings();
         handler->SendGlobalGMSysMessage("DB table `acore_string` reloaded.");
-        return true;
-    }
-
-    static bool HandleReloadWardenactionCommand(ChatHandler* handler, const char* /*args*/)
-    {
-        if (!sWorld->getBoolConfig(CONFIG_WARDEN_ENABLED))
-        {
-            handler->SendSysMessage("Warden system disabled by config - reloading warden_action skipped.");
-            handler->SetSentErrorMessage(true);
-            return false;
-        }
-
-        sLog->outString("Re-Loading warden_action Table!");
-        sWardenCheckMgr->LoadWardenOverrides();
-        handler->SendGlobalGMSysMessage("DB table `warden_action` reloaded.");
         return true;
     }
 

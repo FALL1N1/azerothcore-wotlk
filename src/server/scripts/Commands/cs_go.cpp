@@ -36,8 +36,7 @@ public:
             { "taxinode",       SEC_MODERATOR,      false, &HandleGoTaxinodeCommand,          "" },
             { "trigger",        SEC_MODERATOR,      false, &HandleGoTriggerCommand,           "" },
             { "zonexy",         SEC_MODERATOR,      false, &HandleGoZoneXYCommand,            "" },
-            { "xyz",            SEC_MODERATOR,      false, &HandleGoXYZCommand,               "" },
-            { "ticket",         SEC_GAMEMASTER,     false, &HandleGoTicketCommand,            "" },
+            { "xyz",            SEC_MODERATOR,      false, &HandleGoXYZCommand,               "" }, 
             { "",               SEC_MODERATOR,      false, &HandleGoXYZCommand,               "" }
         };
 

@@ -4804,11 +4804,6 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
     // remove from arena teams
     LeaveAllArenaTeams(playerguid);
 
-    // close player ticket if any
-    GmTicket* ticket = sTicketMgr->GetTicketByPlayer(playerguid);
-    if (ticket)
-        sTicketMgr->CloseTicket(ticket->GetId(), playerguid);
-
     // remove from group
     if (uint32 groupId = GetGroupIdFromStorage(guid))
         if (Group* group = sGroupMgr->GetGroupByGUID(groupId))

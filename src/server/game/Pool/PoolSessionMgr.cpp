@@ -14,18 +14,7 @@ PoolSession* PoolSessionMgr::GetSession(uint32 id)
 }
 
 void PoolSessionMgr::SendGUIDSync(uint32 type, uint32 guid)
-{
-    PoolSessionMap::const_iterator itr;
-    itr = m_sessions.begin();
-    if (itr == m_sessions.end())
-        return;
-
-    WorldPacket packet(NODE_SYNC_DATA);
-    packet << uint32 (CL_DEF_GUID_SYNC);
-    packet << uint32 (type);
-    packet << guid;
-    itr->second->SendPacket(&packet);
-
+{ 
     return;
 }
 

@@ -30,9 +30,7 @@
 #include "SocialMgr.h"
 #include "zlib.h"
 #include "ScriptMgr.h"
-#include "Transport.h"
-#include "ClusterDefines.h"
-#include "PoolSessionMgr.h"
+#include "Transport.h" 
 #include "SavingSystem.h"
 #include "AccountMgr.h"
 #ifdef ELUNA
@@ -48,13 +46,14 @@ namespace
 
 bool MapSessionFilter::Process(WorldPacket* packet)
 {
+    if (packet->GetOpcode() >= NUM_MSG_TYPES)
+        return true;
+
     OpcodeHandler const& opHandle = opcodeTable[packet->GetOpcode()];
 
-    //let's check if our opcode can be really processed in Map::Update()
     if (opHandle.packetProcessing == PROCESS_INPLACE)
         return true;
 
-    //we do not process thread-unsafe packets
     if (opHandle.packetProcessing == PROCESS_THREADUNSAFE)
         return false;
 
@@ -62,29 +61,26 @@ bool MapSessionFilter::Process(WorldPacket* packet)
     if (!player)
         return false;
 
-    //in Map::Update() we do not process packets where player is not in world!
     return player->IsInWorld();
 }
 
-//we should process ALL packets when player is not in world/logged in
-//OR packet handler is not thread-safe!
 bool WorldSessionFilter::Process(WorldPacket* packet)
 {
+    if (packet->GetOpcode() >= NUM_MSG_TYPES)
+        return true;
+
     OpcodeHandler const& opHandle = opcodeTable[packet->GetOpcode()];
-    //check if packet handler is supposed to be safe
+
     if (opHandle.packetProcessing == PROCESS_INPLACE)
         return true;
 
-    //thread-unsafe packets should be processed in World::UpdateSessions()
     if (opHandle.packetProcessing == PROCESS_THREADUNSAFE)
         return true;
 
-    //no player attached? -> our client! ^^
     Player* player = m_pSession->GetPlayer();
     if (!player)
         return true;
 
-    //lets process all packets for non-in-the-world player
     return (player->IsInWorld() == false);
 }
 
@@ -118,30 +114,20 @@ WorldSession::WorldSession(uint32 id, WorldSocket* sock, AccountTypes sec, uint8
     m_currentVendorEntry(0),
     m_currentBankerGUID(0),
     timeWhoCommandAllowed(0),
-    _calendarEventCreationCooldown(0),
-	m_forceTele(false),
-	_newNode(0)
+    _calendarEventCreationCooldown(0)
 {
     memset(m_Tutorials, 0, sizeof(m_Tutorials));
 
-    _warden = nullptr;
     _offlineTime = 0;
     _kicked = false;
     _shouldSetOfflineInDB = true;
-    // Custom nodes (EventNode) should delete session immediately
-    // 1 min after socket loss, session is deleted
-    if (sWorld->getIntConfig(CONFIG_CORE_TYPE) != NODE_TYPE_CUSTOM)
-        expireTime = 60 * IN_MILLISECONDS;
 
     if (sock)
     {
         m_Address = sock->GetRemoteAddress();
-
         sock->AddReference();
-        ResetTimeOutTime();
-
-        if (sWorld->getIntConfig(CONFIG_CORE_TYPE) == NODE_TYPE_SINGLE)
-            LoginDatabase.PExecute("UPDATE account SET online = 1 WHERE id = %u;", GetAccountId());     // One-time query
+        ResetTimeOutTime(false);
+        LoginDatabase.PExecute("UPDATE account SET online = 1 WHERE id = %u;", GetAccountId());
     }
 
     InitializeQueryCallbackParameters();
@@ -164,18 +150,13 @@ WorldSession::~WorldSession()
         m_Socket = nullptr;
     }
 
-    if (_warden)
-    {
-        delete _warden;
-        _warden = nullptr;
-    }
-
     ///- empty incoming packet queue
     WorldPacket* packet = nullptr;
     while (_recvQueue.next(packet))
         delete packet;
 
-    LoginDatabase.PExecute("UPDATE account SET online = 0 WHERE id = %u;", GetAccountId());     // One-time query
+    if (GetShouldSetOfflineInDB())
+        LoginDatabase.PExecute("UPDATE account SET online = 0 WHERE id = %u;", GetAccountId());     // One-time query
 }
 
 std::string const& WorldSession::GetPlayerName() const
@@ -377,71 +358,33 @@ bool WorldSession::Update(uint32 diff, PacketFilter& updater)
             }
         }
 
-        uint32 temporary = getMSTime();
-        processedOpcodes.push_back(std::pair<uint32, uint32>(packet->GetOpcode(), getMSTimeDiff(currentMSTime, temporary)));
-
         if (deletePacket)
             delete packet;
 
         deletePacket = true;
 
-        /*#define MAX_PROCESSED_PACKETS_IN_SAME_WORLDSESSION_UPDATE 50
-        processedPackets++;
-
-        //process only a max amout of packets in 1 Update() call.
-        //Any leftover will be processed in next update
-        if (processedPackets > MAX_PROCESSED_PACKETS_IN_SAME_WORLDSESSION_UPDATE)
-        {
-            output = true;
+        if (++processedPackets >= 150) // limit (by count) packets processed in one update, prevent DDoS
             break;
-        }
 
-        #define MAX_PROCESS_MSTIME_IN_SAME_WORLDSESSION_UPDATE 5
-        currentMSTime = getMSTime();
-        if (getUSTimeDiff(msTime, currentMSTime) > MAX_PROCESS_MSTIME_IN_SAME_WORLDSESSION_UPDATE)
-        {
-            output = true;
+        if (getMSTimeDiff(_startMSTime, getMSTime()) >= 3) // limit (by time) packets processed in one update, prevent DDoS
             break;
-        }*/
     }
 
-    /*if (output)
+    if (movementPacket)
     {
-        std::stringstream ss;
-        ss << "Session: " << GetAccountId() << " Player: " << GetPlayerName();
-        std::list<std::pair<uint32, uint32> >::iterator itr = processedOpcodes.begin();
-        for (; itr != processedOpcodes.end(); ++itr)
-            ss << " " << itr->first << "-" << itr->second << "ms";
-
-        sLog->outPerformance(ss.str().c_str());
-    }*/
-    ProcessQueryCallbacks();
+        if (_player && _player->IsInWorld())
+            HandleMovementOpcodes(*movementPacket);
+        delete movementPacket;
+    }
 
     if (m_Socket && !m_Socket->IsClosed())
         ProcessQueryCallbacks();
-    if (_newNode)
-    {
-        if (Player *player = GetPlayer())
-        {
-            if (player->IsSaveCommited())
-            {
-                WorldPacket data(NODE_MISC_DATA);
-                data << uint32(CL_DEF_TRANSFER_TO_NODE);
-                data << _newNode;
-                SendPacket(&data);
-                _newNode = 0;
-            }
-        }
-    }
 
     if (updater.ProcessLogout())
     {
         time_t currTime = time(nullptr);
         if (ShouldLogOut(currTime) && !m_playerLoading)
-            LogoutPlayer(true);
-
-        if (m_Socket && !m_Socket->IsClosed() && _warden)
-            _warden->Update();
+            LogoutPlayer(true); 
 
         if (m_Socket && m_Socket->IsClosed())
         {
@@ -456,6 +399,48 @@ bool WorldSession::Update(uint32 diff, PacketFilter& updater)
     return true;
 }
 
+bool WorldSession::HandleSocketClosed()
+{
+    if (m_Socket && m_Socket->IsClosed() && !IsKicked() && GetPlayer() && !PlayerLogout() && GetPlayer()->m_taxi.empty() && GetPlayer()->IsInWorld() && !World::IsStopped())
+    {
+        m_Socket->RemoveReference();
+        m_Socket = nullptr;
+        GetPlayer()->TradeCancel(false);
+        return true;
+    }
+    return false;
+}
+
+void WorldSession::HandleTeleportTimeout(bool updateInSessions)
+{
+    // pussywizard: handle teleport ack timeout
+    if (m_Socket && !m_Socket->IsClosed() && GetPlayer() && GetPlayer()->IsBeingTeleported())
+    {
+        time_t currTime = time(nullptr);
+        if (updateInSessions) // session update from World::UpdateSessions
+        {
+            if (GetPlayer()->IsBeingTeleportedFar() && GetPlayer()->GetSemaphoreTeleportFar() + sWorld->getIntConfig(CONFIG_TELEPORT_TIMEOUT_FAR) < currTime)
+                while (GetPlayer() && GetPlayer()->IsBeingTeleportedFar())
+                    HandleMoveWorldportAckOpcode();
+        }
+        else // session update from Map::Update
+        {
+            if (GetPlayer()->IsBeingTeleportedNear() && GetPlayer()->GetSemaphoreTeleportNear() + sWorld->getIntConfig(CONFIG_TELEPORT_TIMEOUT_NEAR) < currTime)
+                while (GetPlayer() && GetPlayer()->IsInWorld() && GetPlayer()->IsBeingTeleportedNear())
+                {
+                    Player* plMover = GetPlayer()->m_mover->ToPlayer();
+                    if (!plMover)
+                        break;
+                    WorldPacket pkt(MSG_MOVE_TELEPORT_ACK, 20);
+                    pkt.append(plMover->GetPackGUID());
+                    pkt << uint32(0); // flags
+                    pkt << uint32(0); // time
+                    HandleMoveTeleportAck(pkt);
+                }
+        }
+    }
+}
+
 /// %Log the player out
 void WorldSession::LogoutPlayer(bool save)
 {
@@ -465,12 +450,6 @@ void WorldSession::LogoutPlayer(bool save)
 
     m_playerLogout = true;
     m_playerSave = save;
-    //If we've got a coretype 2 delete the player from the DB
-    if (sWorld->getIntConfig(CONFIG_CORE_TYPE) == NODE_TYPE_POOL)
-    {
-        m_playerSave = false;
-        _pguid = _player->GetGUIDLow();
-    }
 
     if (_player)
     {
@@ -622,10 +601,6 @@ void WorldSession::LogoutPlayer(bool save)
         CharacterDatabase.Execute(stmt);
     }
 
-    //If we've got a coretype 2 delete the player from the DB
-    if (sWorld->getIntConfig(CONFIG_CORE_TYPE) == NODE_TYPE_POOL)
-        Player::DeleteFromDB(_pguid, 0, false, true);
-
     m_playerLogout = false;
     m_playerSave = false;
     LogoutRequest(0);
@@ -639,14 +614,6 @@ void WorldSession::KickPlayer(std::string const& reason, bool setKicked)
 
     if (setKicked)
         SetKicked(true); // pussywizard: the session won't be left ingame for 60 seconds and to also kick offline session
-}
-
-void WorldSession::SendChangeNode(uint32 NodeID)
-{
-    _player->SaveToDB(); //Save the player
-
-    SendNotification("Warte auf Player Save...");
-    _newNode = NodeID;
 }
 
 void WorldSession::SendNotification(const char* format, ...)
@@ -1343,22 +1310,7 @@ void WorldSession::ProcessQueryCallbackLogin()
         _charLoginCallback.cancel();
     }
 }
-
-void WorldSession::InitWarden(BigNumber* k, std::string const& os)
-{
-    if (os == "Win")
-    {
-        _warden = new WardenWin();
-        _warden->Init(this, k);
-    }
-    else if (os == "OSX")
-    {
-        // Disabled as it is causing the client to crash
-        // _warden = new WardenMac();
-        // _warden->Init(this, k);
-    }
-}
-
+ 
 bool WorldSession::DosProtection::EvaluateOpcode(WorldPacket& p, time_t time) const
 {
     uint32 maxPacketCounterAllowed = GetMaxPacketCounterAllowed(p.GetOpcode());

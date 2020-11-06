@@ -109,7 +109,7 @@ class ReactorRunnable : protected ACE_Task_Base
 
         int AddSocket (PoolSocket* sock)
         {
-            TRINITY_GUARD(ACE_Thread_Mutex, m_NewSockets_Lock);
+            ACORE_GUARD(ACE_Thread_Mutex, m_NewSockets_Lock);
 
             ++m_Connections;
             sock->AddReference();
@@ -128,7 +128,7 @@ class ReactorRunnable : protected ACE_Task_Base
 
         void AddNewSockets()
         {
-            TRINITY_GUARD(ACE_Thread_Mutex, m_NewSockets_Lock);
+            ACORE_GUARD(ACE_Thread_Mutex, m_NewSockets_Lock);
 
             if (m_NewSockets.empty())
                 return;
@@ -223,9 +223,9 @@ PoolSocketMgr::~PoolSocketMgr()
 int
 PoolSocketMgr::StartReactiveIO (ACE_UINT16 port, const char* address)
 {
-    m_UseNoDelay = ConfigMgr::GetBoolDefault ("Network.TcpNodelay", true);
+    m_UseNoDelay = sConfigMgr->GetBoolDefault("Network.TcpNodelay", true);
 
-    int num_threads = ConfigMgr::GetIntDefault ("Network.Threads", 1);
+    int num_threads = sConfigMgr->GetIntDefault("Network.Threads", 1);
 
     if (num_threads <= 0)
     {
@@ -240,9 +240,9 @@ PoolSocketMgr::StartReactiveIO (ACE_UINT16 port, const char* address)
     sLog->outBasic ("Max allowed socket connections %d", ACE::max_handles());
 
     // -1 means use default
-    m_SockOutKBuff = ConfigMgr::GetIntDefault ("Network.OutKBuff", -1);
+    m_SockOutKBuff = sConfigMgr->GetIntDefault("Network.OutKBuff", -1);
 
-    m_SockOutUBuff = ConfigMgr::GetIntDefault ("Network.OutUBuff", 65536);
+    m_SockOutUBuff = sConfigMgr->GetIntDefault("Network.OutUBuff", 65536);
 
     if (m_SockOutUBuff <= 0)
     {

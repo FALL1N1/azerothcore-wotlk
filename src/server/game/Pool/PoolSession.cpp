@@ -69,16 +69,7 @@ bool PoolSession::UpdateServerIO(uint32 /*diff*/)
         else
         {
             try
-            {
-                switch (packet->GetOpcode())
-                {
-                    case LOGON_INIT_NODE:
-                        Handle_LOGON_INIT_NODE(*packet);
-                        break;
-                    case LOGON_SYNC_DATA:
-                        Handle_LOGON_SYNC_DATA(*packet);
-                        break;
-                }
+            { 
             }
             catch (ByteBufferException &)
             {
@@ -145,11 +136,7 @@ void PoolSession::SendPacket(WorldPacket const* packet)
 }
 
 void PoolSession::SendInitACK(uint8 ack)
-{
-    //Send ACK
-    WorldPacket packet(NODE_INIT_ACK);
-    packet << uint8(ack);
-    SendPacket(&packet);
+{ 
 }
 
 //Handle

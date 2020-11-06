@@ -1016,11 +1016,7 @@ int WorldSocket::HandleAuthSession(WorldPacket& recvPacket)
 
     // At this point, we can safely hook a successful login
     sScriptMgr->OnAccountLogin(id);
-
-    // Initialize Warden system only if it is enabled by config
-    if (wardenActive)
-        m_Session->InitWarden(&k, os);
-
+ 
     // Sleep this Network thread for
     uint32 sleepTime = sWorld->getIntConfig(CONFIG_SESSION_ADD_DELAY);
     std::this_thread::sleep_for(Microseconds(sleepTime));

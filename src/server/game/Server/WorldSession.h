@@ -34,8 +34,7 @@ class Pet;
 class Player;
 class Quest;
 class SpellCastTargets;
-class Unit;
-class Warden;
+class Unit; 
 class WorldPacket;
 class WorldSocket;
 class AsynchPetSummon;
@@ -237,9 +236,7 @@ public:
 
     void SetTotalTime(uint32 TotalTime) { m_total_time = TotalTime; }
     uint32 GetTotalTime() const { return m_total_time; }
-
-    void InitWarden(BigNumber* k, std::string const& os);
-
+ 
     /// Session in auth.queue currently
     void SetInQueue(bool state) { m_inQueue = state; }
 
@@ -446,8 +443,8 @@ public:                                                 // opcodes handlers
     void HandleWhoOpcode(WorldPacket& recvPacket);
     void HandleLogoutRequestOpcode(WorldPacket& recvPacket);
     void HandlePlayerLogoutOpcode(WorldPacket& recvPacket);
-    void HandleLogoutCancelOpcode(WorldPacket& recvPacket); 
-
+    void HandleLogoutCancelOpcode(WorldPacket& recvPacket);
+ 
     void HandleTogglePvP(WorldPacket& recvPacket);
 
     void HandleZoneUpdateOpcode(WorldPacket& recvPacket);
@@ -750,8 +747,7 @@ public:                                                 // opcodes handlers
     void HandleBattlefieldLeaveOpcode(WorldPacket& recvData);
     void HandleBattlemasterJoinArena(WorldPacket& recvData);
     void HandleReportPvPAFK(WorldPacket& recvData);
-
-    void HandleWardenDataOpcode(WorldPacket& recvData);
+    
     void HandleWorldTeleportOpcode(WorldPacket& recvData);
     void HandleMinimapPingOpcode(WorldPacket& recvData);
     void HandleRandomRollOpcode(WorldPacket& recvData);
@@ -1004,9 +1000,6 @@ private:
     uint32 m_total_time;
 
     typedef std::list<AddonInfo> AddonsList;
-
-    // Warden
-    Warden* _warden;                                    // Remains NULL if Warden system is not enabled by config
 
     time_t _logoutTime;
     bool m_inQueue;                                     // session wait in auth.queue
