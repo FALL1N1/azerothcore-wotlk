@@ -2,7 +2,8 @@
 #define __LOGON_H
 
 #include "Common.h"
-#include "Timer.h" 
+#include "Timer.h"
+#include "SharedDefines.h"
 #include "QueryResult.h"
 #include "Callback.h"
 #include <atomic>
@@ -16,30 +17,6 @@ class Player;
 #define LOGON_LOGIN_DELAY 2 * IN_MILLISECONDS * IN_MILLISECONDS
 #define LOGON_DOS_STRIKE_LIMIT 5
 
-struct GlobalPlayerData
-{
-    uint32 guidLow;
-    uint32 accountId;
-    std::string name;
-    uint8 race;
-    uint8 playerClass;
-    uint8 gender;
-    uint8 level;
-    uint16 mailCount;
-    uint32 guildId;
-    uint32 groupId;
-    uint32 arenaTeamId[3];
-};
-
-enum GlobalPlayerUpdateMask
-{
-    PLAYER_UPDATE_DATA_LEVEL            = 0x01,
-    PLAYER_UPDATE_DATA_RACE                = 0x02,
-    PLAYER_UPDATE_DATA_CLASS            = 0x04,
-    PLAYER_UPDATE_DATA_GENDER            = 0x08,
-    PLAYER_UPDATE_DATA_NAME                = 0x10,
-};
-
 // ServerMessages.dbc
 enum ServerMessageType
 {
@@ -49,11 +26,6 @@ enum ServerMessageType
     SERVER_MSG_SHUTDOWN_CANCELLED = 4,
     SERVER_MSG_RESTART_CANCELLED  = 5
 };
-
-typedef std::unordered_map<uint32, GlobalPlayerData> GlobalPlayerDataMap;
-typedef std::map<std::string, uint32> GlobalPlayerNameMap;
-typedef std::unordered_map<uint32, ClientSession*> SessionMap;
-
 
 enum ShutdownMask
 {
@@ -131,6 +103,7 @@ enum LogonTimer
     LUPDATE_PINGDB,
     LUPDATE_REBASE,
     LUPDATE_BAN,
+    LUPDATE_AUTOBROADCAST,
     LUPDATE_COUNT
 };
 
@@ -182,9 +155,8 @@ enum LogonRates
 enum LogonIntConfigs
 {
     CONFIG_SOCKET_TIMEOUTTIME = 0,
-    CONFIG_GROUP_VISIBILITY,
-    CONFIG_BATTLEGROUND_INVITATION_TYPE,
     CONFIG_PORT_LOGON,
+    CONFIG_INTERVAL_DISCONNECT_TOLERANCE,
     CONFIG_MAX_OVERSPEED_PINGS,
     CONFIG_SESSION_ADD_DELAY,
     CONFIG_SESSION_MT_THREADS,
@@ -235,6 +207,10 @@ enum LogonIntConfigs
     CONFIG_SKILL_CHANCE_MINING_STEPS,
     CONFIG_SKILL_CHANCE_SKINNING_STEPS,
 
+    // Autobroadcast
+    CONFIG_AUTOBROADCAST_CENTER,
+    CONFIG_AUTOBROADCAST_INTERVAL,
+
     INT_CONFIG_VALUE_COUNT
 };
 
@@ -283,6 +259,9 @@ enum LogonBoolConfigs
     // Misc
     CONFIG_DIE_COMMAND_MODE,
 
+    // Autobroadcast
+    CONFIG_AUTOBROADCAST,
+
     BOOL_CONFIG_VALUE_COUNT
 };
 
@@ -327,7 +306,8 @@ class Logon
 
         void Update(uint32 diff);
 
-        void LoadConfigSettings(bool reload = false); 
+        void LoadConfigSettings(bool reload = false);
+        void LoadDBVersion();
         char const* GetDBVersion() const { return m_DBVersion.c_str(); }
 
         void DetectDBCLang();
@@ -335,19 +315,7 @@ class Logon
         LocaleConstant GetDefaultDbcLocale() const { return m_defaultDbcLocale; }
 
         void SetInitialLogonSettings();
-        
-        // Global Player Data Storage system
-        void LoadGlobalPlayerDataStore();
-        uint32 GetGlobalPlayerGUID(std::string const& name) const;
-        GlobalPlayerData const* GetGlobalPlayerData(uint32 guid) const;
-        void AddGlobalPlayerData(uint32 guid, uint32 accountId, std::string const& name, uint8 gender, uint8 race, uint8 playerClass, uint8 level, uint16 mailCount, uint32 guildId);
-        void UpdateGlobalPlayerData(uint32 guid, uint8 mask, std::string const& name, uint8 level = 0, uint8 gender = 0, uint8 race = 0, uint8 playerClass = 0);
-        void UpdateGlobalPlayerMails(uint32 guid, int16 count, bool add = true);
-        void UpdateGlobalPlayerGuild(uint32 guid, uint32 guildId);
-        void UpdateGlobalPlayerGroup(uint32 guid, uint32 groupId);
-        void UpdateGlobalPlayerArenaTeam(uint32 guid, uint8 slot, uint32 arenaTeamId);
-        void UpdateGlobalNameData(uint32 guidLow, std::string const& oldName, std::string const& newName);
-        void DeleteGlobalPlayerData(uint32 guid, std::string const& name); 
+
         //ServerInfo
         bool IsClosed() const { return m_isClosed; }
         AccountTypes GetPlayerSecurityLimit() const { return m_allowedSecurityLevel; }
@@ -383,7 +351,13 @@ class Logon
         static bool IsHalted() { return m_haltEvent; }
         static void HaltNow() { m_haltEvent = true;}
 
-        static void ContinueNow() { m_haltEvent = false;} 
+        static void ContinueNow() { m_haltEvent = false;}
+
+        /*BanReturn BanAccount(BanMode mode, std::string nameOrIP, std::string duration, std::string reason, std::string author);
+        BanReturn BanAccountbyId(uint32 accountId, int32 duration, std::string reason, std::string author);
+        bool RemoveBanAccount(BanMode mode, std::string nameOrIP);
+        BanReturn BanCharacter(std::string name, std::string duration, std::string reason, std::string author);
+        bool RemoveBanCharacter(std::string name);*/
 
         /// Are we on a "Player versus Player" server?
         bool IsPvPRealm() const { return (getIntConfig(CONFIG_GAME_TYPE) == REALM_TYPE_PVP || getIntConfig(CONFIG_GAME_TYPE) == REALM_TYPE_RPPVP || getIntConfig(CONFIG_GAME_TYPE) == REALM_TYPE_FFA_PVP); }
@@ -416,7 +390,7 @@ class Logon
         uint32 debugOpcode;
         /// Update time
         uint32 GetUpdateTime() const { return m_updateTime; }
-        uint32 GetUptime() const { return uint32(m_gameTime - m_startTime); } 
+        uint32 GetUptime() const { return uint32(m_gameTime - m_startTime); }
 
     protected:
         void _UpdateGameTime();
@@ -470,14 +444,6 @@ class Logon
 
         void ProcessQueryCallbacks();
         ACE_Future_Set<PreparedQueryResult> m_realmCharCallbacks;
-         
-        GlobalPlayerDataMap _globalPlayerDataStore;
-        GlobalPlayerNameMap _globalPlayerNameStore;
-
-        std::string _realmName;
-        
-        SessionMap m_sessions;
-        SessionMap m_offlineSessions;
 };
 extern uint32 realmID;
 #define sLogon Logon::instance()

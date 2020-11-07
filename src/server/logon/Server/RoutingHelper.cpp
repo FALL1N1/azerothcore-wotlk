@@ -29,8 +29,6 @@ void RoutingHelper::LoadNodeMap()
         m_nodemap.NodeID = fields[1].GetUInt32();
         m_nodemap.BackupNodeID = fields[2].GetUInt32();
         m_nodemap.SubNodeID = fields[3].GetUInt32();
-        m_nodemap.Name = fields[4].GetString();
-        m_nodemap.Color = fields[5].GetString(); 
 
         m_maplist[Mapid] = m_nodemap;
 
@@ -42,37 +40,17 @@ void RoutingHelper::LoadNodeMap()
     sLog->outString();
     sLog->outString(">> Loaded %u Node assigns", count);
 
-    MasterNode = 1;// GetFirstNode();
+    MasterNode = GetFirstNode();
     m_OnMaster = true;
 }
 
-int32 RoutingHelper::GetNodeForMap(uint32 Map_ID)
+uint32 RoutingHelper::GetNodeForMap(uint32 Map_ID)
 {
     NodeMapList::const_iterator iter = m_maplist.find(Map_ID);
     if (iter == m_maplist.end())
-        return -1;
+        return 0;
     else
         return iter->second.NodeID;
-}
-
-std::string RoutingHelper::GetNameForMapNode(uint32 m)
-{
-    NodeMapList::iterator iter = m_maplist.begin();
-    for (; iter != m_maplist.end(); ++iter)
-        if (iter->second.NodeID == m)
-            return iter->second.Name;
-
-    return "|cffFF0000 error |r";
-}
-
-std::string RoutingHelper::GetColorForMapNode(uint32 m)
-{
-    NodeMapList::iterator iter = m_maplist.begin();
-    for (; iter != m_maplist.end(); ++iter)
-        if (iter->second.NodeID == m)
-            return iter->second.Color;
-
-    return "|cffFF0000 error |r";
 }
 
 uint32 RoutingHelper::GetBackupNodeForMap(uint32 Map_ID)
@@ -112,34 +90,29 @@ uint32 RoutingHelper::GetSubNodeForMap(uint32 Map_ID)
     else
         return iter->second.SubNodeID;
 }
-/*
-bool RoutingHelper::GoToMapNode(ClientSession *m_Session, uint32 MapID)
-{
-    NodeMapList::const_iterator iter = m_maplist.find(MapID);
-    if (iter == m_maplist.end())
-        return false;
-    else
-    {
-        if (CheckNodeID(iter->second.NodeID))
-            m_Session->SendToNode(iter->second.NodeID, MapID);
-        else if (CheckNodeID(iter->second.BackupNodeOnline))
-            m_Session->SendToNode(iter->second.BackupNodeID, MapID);
-        return true;
-    }
 
-    return false;
-}
-*/
+//bool RoutingHelper::GoToMapNode(ClientSession *m_Session, uint32 MapID)
+//{
+//    NodeMapList::const_iterator iter = m_maplist.find(MapID);
+//    if (iter == m_maplist.end())
+//        return false;
+//    else
+//    {
+//        if(CheckNodeID(iter->second.NodeID))
+//            return sNodeSocketMgr->OpenConnection(iter->second.NodeID, m_Session);
+//        else if(CheckNodeID(iter->second.BackupNodeOnline))
+//            return sNodeSocketMgr->OpenConnection(iter->second.BackupNodeID, m_Session);
+//    }
+//
+//    return false;
+//}
 
 //Master ist immer Node1 bis der Logon alles selbst kann
 //Wenn Node1 tot ist gehts zum Backup
 uint32 RoutingHelper::ConnectToMaster()
 {
-    MasterNode = 1;
-    if (CheckNodeID(MasterNode)) {
-        //sLog->outString("[1] CheckNodeID(%u)", MasterNode);
+    if (CheckNodeID(MasterNode))
         return MasterNode;
-    }
     else
     {
         if (m_OnMaster)
@@ -147,7 +120,6 @@ uint32 RoutingHelper::ConnectToMaster()
             uint32 NewMasterNode = GetBackupNodeForID(MasterNode);
             if ((NewMasterNode > 0) && CheckNodeID(NewMasterNode))
             {
-                //sLog->outString("[2] ConnectToMasterNode(%u)", MasterNode);
                 MasterNode = NewMasterNode;
                 m_OnMaster = false;
                 return MasterNode;
@@ -158,7 +130,6 @@ uint32 RoutingHelper::ConnectToMaster()
             uint32 NewMasterNode = GetNodeForID(MasterNode);
             if ((NewMasterNode > 0) && CheckNodeID(NewMasterNode))
             {
-                //sLog->outString("[3] ConnectToMasterNode(%u)", MasterNode);
                 MasterNode = NewMasterNode;
                 m_OnMaster = true;
                 return MasterNode;
@@ -235,7 +206,8 @@ bool RoutingHelper::CanEnterNodeID(uint32 NodeID)
 
 uint32 RoutingHelper::GetFirstNode()
 {
-    return 1;
+    NodeListList::const_iterator iter = m_nodelist.begin();
+    return iter->first;
 }
 
 NodeList RoutingHelper::GetNodeConnectionData(uint32 NodeID)

@@ -1,7 +1,8 @@
 #include "Items.h"
 #include "WorldPacket.h"
 #include "Opcodes.h"
-#include "ClientSession.h" 
+#include "ClientSession.h"
+#include "LocalesMgr.h"
 #include "Log.h"
 
 void Items::WarmingCache()
@@ -62,7 +63,7 @@ void Items::WarmingCache()
         itemTemplate.ItemId                    = entry;
         itemTemplate.Class                     = uint32(fields[1].GetUInt8());
         itemTemplate.SubClass                  = uint32(fields[2].GetUInt8());
-        itemTemplate.SoundOverrideSubclass = fields[3].GetInt32();
+        itemTemplate.Unk0                      = fields[3].GetInt32();
         itemTemplate.Name1                     = fields[4].GetString();
         itemTemplate.DisplayInfoID             = fields[5].GetUInt32();
         itemTemplate.Quality                   = uint32(fields[6].GetUInt8());
@@ -218,7 +219,7 @@ void ClientSession::HandleItemQuerySingleOpcode(WorldPacket & recv_data)
         data << pProto->ItemId;
         data << pProto->Class;
         data << pProto->SubClass;
-        data << int32(pProto->SoundOverrideSubclass);                        // new 2.0.3, not exist in wdb cache?
+        data << int32(pProto->Unk0);                        // new 2.0.3, not exist in wdb cache?
         data << Name;
         data << uint8(0x00);                                //pProto->Name2; // blizz not send name there, just uint8(0x00); <-- \0 = empty string = empty name...
         data << uint8(0x00);                                //pProto->Name3; // blizz not send name there, just uint8(0x00);
@@ -334,7 +335,7 @@ void ClientSession::HandleSMSG_ITEM_QUERY_SINGLE(WorldPacket & recv_data)
     item->ItemId = entry;
     recv_data >> item->Class;
     recv_data >> item->SubClass;
-    recv_data >> item->SoundOverrideSubclass;                        // new 2.0.3, not exist in wdb cache?
+    recv_data >> item->Unk0;                        // new 2.0.3, not exist in wdb cache?
     recv_data >> item->Name1;
     recv_data >> trash;                                //pProto->Name2; // blizz not send name there, just uint8(0x00); <-- \0 = empty string = empty name...
     recv_data >> trash;                                //pProto->Name3; // blizz not send name there, just uint8(0x00);

@@ -2,7 +2,6 @@
 #include "SessionUpdater.h"
 #include "ClientSession.h"
 #include "AccountMgr.h"
-#include "Defines.h"
 
 void ClientSessionMgr::Initialize()
 {
@@ -23,10 +22,21 @@ void ClientSessionMgr::Initialize()
 
 void ClientSessionMgr::Start()
 {
-    // @emo
     int num_threads = sLogon->getIntConfig(CONFIG_SESSION_MT_THREADS);
     if (num_threads <= 0)
         num_threads = 1;
+    /*
+    PreparedStatement* stmt = LoginDatabase.GetPreparedStatement(LOGIN_SEL_STATS);
+    stmt->setInt32(0, realmID+1);
+    PreparedQueryResult result = LoginDatabase.Query(stmt);
+    if (result)
+        _MaxPlayerCount = (*result)[0].GetInt32();
+    else
+    {
+        stmt = LoginDatabase.GetPreparedStatement(LOGIN_INS_STATS);
+        stmt->setInt32(0, realmID+1);
+        LoginDatabase.Execute(stmt);
+    }*/
 
     _SessionThreadsCount = static_cast<size_t> (num_threads);
     _sessionupdater = new SessionUpdater[_SessionThreadsCount];
@@ -57,8 +67,6 @@ void ClientSessionMgr::ServerClose()
 /*********************************************************/
 bool ClientSessionMgr::HasRecentlyDisconnected(ClientSession* session)
 {
-    return false;
-    /*
     if (!session)
         return false;
 
@@ -76,7 +84,7 @@ bool ClientSessionMgr::HasRecentlyDisconnected(ClientSession* session)
                 _disconnects.erase(i);
         }
     }
-    return false;*/
+    return false;
  }
 
 void ClientSessionMgr::UpdateMaxSessionCounters()
@@ -331,7 +339,7 @@ void ClientSessionMgr::ShutdownMsg(uint32 m_ShutdownTimer, uint32 m_ShutdownMask
         (m_ShutdownTimer > 12 * HOUR && (m_ShutdownTimer % (12 * HOUR)) == 0)) // > 12 h ; every 12 h
     {
 
-        std::string out = "ProxyServer is ";
+        std::string out = "[CAROLINE] LogonServer is ";
         out.append(m_ShutdownMask & SHUTDOWN_MASK_RESTART ? "restarting" : "shutting down");
         out.append(" in: ");
         std::string str = secsToTimeString(m_ShutdownTimer);
@@ -345,7 +353,6 @@ void ClientSessionMgr::ShutdownMsg(uint32 m_ShutdownTimer, uint32 m_ShutdownMask
 
 void ClientSessionMgr::HaltMsg(uint32 m_HaltTimer, uint32 m_ShutdownMask, bool show, Player* player)
 {
-    return;
     ///- Display a message every 12 hours, hours, 5 minutes, minute, 5 seconds and finally seconds
     if (show ||
         (m_HaltTimer < 5* MINUTE && (m_HaltTimer % 15) == 0) || // < 5 min; every 15 sec
@@ -354,13 +361,13 @@ void ClientSessionMgr::HaltMsg(uint32 m_HaltTimer, uint32 m_ShutdownMask, bool s
         (m_HaltTimer < 12 * HOUR && (m_HaltTimer % HOUR) == 0) || // < 12 h ; every 1 h
         (m_HaltTimer > 12 * HOUR && (m_HaltTimer % (12 * HOUR)) == 0)) // > 12 h ; every 12 h
     {
-        std::string out = "Server will be taken down for maintenance within ";
+        std::string out = "[CAROLINE] Server is shutting down for maintenance in: ";
         std::string str = secsToTimeString(m_HaltTimer);
         out.append(str);
         out.append(" This may take 3 minutes till 3 hours.");
 
         SendServerMessage(SERVER_MSG_STRING, out.c_str(), player);
-        sLog->outStaticDebug("Server is shutting down in %s", str.c_str());
+        sLog->outStaticDebug("Server is halting in %s", str.c_str());
     }
 }
 
@@ -413,8 +420,8 @@ void ClientSessionMgr::SendGameMasterMessage(const char* text, ...)
         if (!itr->second || !itr->second->GetPlayer())
             continue;
 
-        //if (AccountMgr::IsVIPorPlayer(itr->second->GetSecurity()))
-            //continue;
+        if (AccountMgr::IsVIPorPlayer(itr->second->GetSecurity()))
+            continue;
 
         itr->second->SendPacket(&data);
     }

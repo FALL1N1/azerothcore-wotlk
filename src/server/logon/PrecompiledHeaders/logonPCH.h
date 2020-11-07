@@ -25,6 +25,7 @@
 #include "Common.h"
 
 #include "Log.h"
-#include "Opcodes.h" 
+#include "Opcodes.h"
+#include "SharedDefines.h"
 #include "ObjectMgr.h"
 #include "Util.h"

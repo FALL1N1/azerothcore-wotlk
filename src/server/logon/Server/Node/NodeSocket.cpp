@@ -15,7 +15,7 @@
 #include "Util.h"
 #include "Logon.h"
 #include "WorldPacket.h"
-
+#include "SharedDefines.h"
 #include "ByteBuffer.h"
 #include "Opcodes.h"
 #include "Config.h"
@@ -140,7 +140,7 @@ int NodeSocket::_processIncoming(WorldPacket *newPacket)
     {
         if (sLog->IsOutDebug())
         {
-            sLog->outString("Dumping error causing packet:");
+            sLog->outDebug(LOG_FILTER_NETWORKIO, "Dumping error causing packet:");
             newPacket->hexlike();
         }
 

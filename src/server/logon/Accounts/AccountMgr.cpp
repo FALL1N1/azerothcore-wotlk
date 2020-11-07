@@ -276,6 +276,16 @@ bool IsPlayerAccount(uint32 gmlevel)
     return gmlevel == SEC_PLAYER;
 }
 
+bool IsVIPAccount(uint32 gmlevel)
+{
+    return gmlevel == SEC_PLAYER;
+}
+
+bool IsVIPorPlayer(uint32 gmlevel)
+{
+    return gmlevel <= SEC_PLAYER;
+}
+
 bool IsModeratorAccount(uint32 gmlevel)
 {
     return gmlevel >= SEC_MODERATOR && gmlevel <= SEC_CONSOLE;

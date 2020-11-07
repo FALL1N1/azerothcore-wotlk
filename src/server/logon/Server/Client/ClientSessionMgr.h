@@ -48,11 +48,20 @@ class ClientSessionMgr
 
         inline void IncreasePlayerCount(uint32 team)
         {
-           
+            _PlayerCount++;
+            _MaxPlayerCount = std::max(_MaxPlayerCount, _PlayerCount);
+            if (team == HORDE)
+                _HordeCount++;
+            else if (team == ALLIANCE)
+                _AllyCount++;
         }
         inline void DecreasePlayerCount(uint32 team)
         {
-
+            _PlayerCount--;
+            if (team == HORDE)
+                _HordeCount--;
+            else if (team == ALLIANCE)
+                _AllyCount--;
         }
 
         /*********************************************************/

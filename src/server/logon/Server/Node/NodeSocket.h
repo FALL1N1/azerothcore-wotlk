@@ -40,12 +40,12 @@ class NodeSocketConnector : public SocketConnector<NodeSocket>
 public:
     NodeSocket* OpenNodeConnection(uint32 nodeID)
     {
-        //sLog->outString("OpenNodeConnection(%u)", nodeID);
+        sLog->outString("OpenNodeConnection(%u)", nodeID);
         if (sRoutingHelper->CheckNodeID(nodeID))
         {
-            //sLog->outString("CheckNodeID(%u)", nodeID);
+            sLog->outString("CheckNodeID(%u)", nodeID);
             NodeList nodeInfo = sRoutingHelper->GetNodeConnectionData(nodeID);
-            //sLog->outString("CheckNodeID(%u), nodeInfo(%u), nodeInfo(%s)", nodeID, nodeInfo.port, nodeInfo.IP);
+            sLog->outString("CheckNodeID(%u), nodeInfo(%u), nodeInfo(%s)", nodeID, nodeInfo.port, nodeInfo.IP);
                 return SocketConnector<NodeSocket>::OpenConnection(nodeInfo.port, nodeInfo.IP);
         }
         

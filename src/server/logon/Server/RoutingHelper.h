@@ -17,8 +17,6 @@ struct NodeMap
     uint32 BackupNodeID;
     bool BackupNodeOnline;
     uint32 Master;
-    std::string Name;
-    std::string Color;
 
     //Used for expand Maps
     uint32 SubNodeID;
@@ -52,15 +50,13 @@ public:
 
     void LoadNodeMap();
 
-    int32 GetNodeForMap(uint32 Map_ID);
-    std::string GetNameForMapNode(uint32 m);
-    std::string GetColorForMapNode(uint32 m);
+    uint32 GetNodeForMap(uint32 Map_ID);
     uint32 GetNodeForID(uint32 Node_ID);
     uint32 GetBackupNodeForMap(uint32 Map_ID);
     uint32 GetBackupNodeForID(uint32 Node_ID);
     uint32 GetSubNodeForMap(uint32 Map_ID);
 
-    bool GoToMapNode(ClientSession *m_Session, uint32 MapID);
+    //bool GoToMapNode(ClientSession *m_Session, uint32 MapID);
     uint32 ConnectToMaster();
 
     /// Load NodeList

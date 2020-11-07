@@ -2,6 +2,7 @@
 #define _ITEMPROTOTYPE_H
 
 #include "Common.h"
+#include "SharedDefines.h"
 
 // -1 from client enchantment slot number
 enum EnchantmentSlot
@@ -53,7 +54,7 @@ struct ItemTemplate
     std::string  Name1;
     uint32      Class;                                           // id from ItemClass.dbc
     uint32      SubClass;                                        // id from ItemSubClass.dbc
-    int32       SoundOverrideSubclass;
+    int32       Unk0;
     uint32      DisplayInfoID;                                   // id from ItemDisplayInfo.dbc
     uint32      Quality;
     uint32      Flags;

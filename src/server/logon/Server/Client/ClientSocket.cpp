@@ -26,14 +26,14 @@
 #include <ace/OS_NS_string.h>
 #include <ace/Reactor.h>
 #include <ace/Auto_Ptr.h>
-#include "Defines.h"
+
 #include "ClientSocket.h"
 #include "Common.h"
 
 #include "Util.h"
 #include "Logon.h"
-#include "WorldPacket.h"
-
+#include "WorldPacket.h" 
+#include <Misc/SharedDefines.h> //  #include "SharedDefines.h"
 #include "ByteBuffer.h"
 #include "Opcodes.h"
 #include "DatabaseEnv.h"
@@ -67,11 +67,11 @@ void ClientSocket::_buildAuthChallengePacket(WorldPacket &packet)
 
     BigNumber seed1;
     seed1.SetRand(16 * 8);
-    packet.append(seed1.AsByteArray(16).get(), 16);               // new encryption seeds
+    packet.append(seed1.AsByteArray(16));               // new encryption seeds
 
     BigNumber seed2;
     seed2.SetRand(16 * 8);
-    packet.append(seed2.AsByteArray(16).get(), 16);               // new encryption seeds
+    packet.append(seed2.AsByteArray(16));               // new encryption seeds
 }
 
 uint32 ClientSocket::GetLatency() const
@@ -166,7 +166,7 @@ int ClientSocket::_processIncoming(WorldPacket *newPacket)
     // manage memory ;)
     ACE_Auto_Ptr<WorldPacket> aptr(newPacket);
 
-    uint16 opcode = newPacket->GetOpcode();
+    const ACE_UINT16 opcode = newPacket->GetOpcode();
 
     if (IsClosing())
     {
@@ -214,7 +214,7 @@ int ClientSocket::_processIncoming(WorldPacket *newPacket)
 
         if (sLog->IsOutDebug())
         {
-            sLog->outString("Dumping error causing packet:");
+            sLog->outDebug(LOG_FILTER_NETWORKIO, "Dumping error causing packet:");
             newPacket->hexlike();
         }
 
@@ -375,7 +375,7 @@ int ClientSocket::_handleAuthSession(WorldPacket& recvPacket)
 
     // Check locked state for server
     AccountTypes allowedAccountType = sLogon->GetPlayerSecurityLimit();
-    //sLog->outString("Allowed Level: %u Player Level %u", allowedAccountType, AccountTypes(security));
+    sLog->outDebug(LOG_FILTER_NETWORKIO, "Allowed Level: %u Player Level %u", allowedAccountType, AccountTypes(security));
     if (AccountTypes(security) < allowedAccountType)
     {
         WorldPacket Packet(SMSG_AUTH_RESPONSE, 1);
@@ -442,7 +442,7 @@ int ClientSocket::_handleAuthSession(WorldPacket& recvPacket)
     m_Crypt.Init(&k);
 
     session->ReadAddonsInfo(recvPacket);
-    //session->InitWarden(&k, os);
+    //session->InitWarden(&k);
 
     SetAuthenticated();
 

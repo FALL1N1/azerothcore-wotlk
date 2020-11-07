@@ -1,23 +1,14 @@
 #ifndef __PLAYER_H
 #define __PLAYER_H
- 
+
+#include "AchievementMgr.h"
 #include "ClientSession.h"
 #include "ObjectDefines.h"
-#include "UpdateFields.h"  
+#include "UpdateFields.h"
 
 class ClientSession;
 class Channel;
 class PlayerSocial;
-//class Group;
-
-enum DeathState
-{
-    ALIVE          = 0,
-    JUST_DIED      = 1,
-    CORPSE         = 2,
-    DEAD           = 3,
-    JUST_RESPAWNED = 4,
-};
 
 enum InventorySlots                                         // 4 slots
 {
@@ -128,12 +119,7 @@ struct PlayerInfo
     PlayerInfo() : displayId_m(0),displayId_f(0)            //,levelInfo(NULL)
     {
     }
-    uint32 health;
-    uint32 power; 
-    uint32 maxhealth;
-    uint32 maxpower;
-    DeathState _state;
-     
+
     uint32 mapId;
     uint32 areaId;
     uint32 zoneId;
@@ -152,42 +138,18 @@ class Player
     public:
         explicit Player (ClientSession *session, uint64 GUID);
         ~Player ();
-
-        // data from node
-        void SetHealth(uint32 v) { health = v; };
-        void SetMaxHealth(uint32 v) { maxhealth = v; };
-        uint32 GetHealth() { return health; };
-        uint32 GetMaxHealth() { return maxhealth; };
-         
-
-        void SetPosition(float x, float y, float z, float o) { positionX = x; positionY = y; positionZ = z; orientation = o; };
-        float GetPositionX() { return positionX; };
-        float GetPositionY() { return positionY; };
-        float GetPositionZ() { return positionZ; };
-        float GetOrientation() { return orientation; };
-        void SetPositionX(float x) { positionX = x; };
-        void SetPositionY(float y) { positionY = y; };
-        void SetPositionZ(float z) { positionZ = z; };
-        void SetOrientation(float o) { orientation = o; };
-     
-        void setDeathState(DeathState s, bool despawn = false);           // overwrited in Creature/Player/Pet
-        bool IsAlive() const { return (_deathState == ALIVE); };
-        bool isDying() const { return (_deathState == JUST_DIED); };
-        bool isDead() const { return (_deathState == DEAD || _deathState == CORPSE); };
-        DeathState getDeathState() { return _deathState; };
- 
-
-
         void Logout(uint32 accountId);
 
         PlayerInfo p_info;
-        void UpdateMapID(uint32 mapID) { _mapId = mapID; }
-
+        void UpdateMapID(uint32 mapID) { mapId=mapID; }            
+    
         //Zone/Area
-        void UpdateZone(uint32 newZone, uint32 newArea, uint32 mapId);
+        void UpdateZone(uint32 newZone, uint32 newArea);
 
         void SetLevelUp(uint8 level){ _level = level; }
-        uint32 GetMapId() { return _mapId; }
+
+        //BG Stuff
+        bool InBattleground() { return _IsInBattleGround; }
 
         /************************************************************\
         |***************** GAMEMASTER related stuff *****************|
@@ -200,47 +162,29 @@ class Player
         void SetGameMaster(bool on);
 
 
-        /*********************************************************/
-        /***                   GROUP SYSTEM                    ***/
-        /*********************************************************/
-        /*
-        Group* GetGroupInvite() { return m_groupInvite; }
-        void SetGroupInvite(Group* group) { m_groupInvite = group; }
-        Group* GetGroup() { return m_group.getTarget(); }
-        const Group* GetGroup() const { return (const Group*)m_group.getTarget(); }
-        GroupReference& GetGroupRef() { return m_group; }
-        void SetGroup(Group* group, int8 subgroup = -1);
-        uint8 GetSubGroup() const { return m_group.getSubGroup(); }
-        uint32 GetGroupUpdateFlag() const { return m_groupUpdateMask; }
-        void SetGroupUpdateFlag(uint32 flag) { m_groupUpdateMask |= flag; }
-        uint64 GetAuraUpdateMaskForRaid() const { return m_auraRaidUpdateMask; }
-        void SetAuraUpdateMaskForRaid(uint8 slot) { m_auraRaidUpdateMask |= (uint64(1) << slot); }
-        Player* GetNextRandomRaidMember(float radius);
-        PartyResult CanUninviteFromGroup() const;
-        
-        bool IsGroupVisibleFor(Player const* p) const;
-        bool IsInSameGroupWith(Player const* p) const;
-        bool IsInSameRaidWith(Player const* p) const { return p == this || (GetGroup() != NULL && GetGroup() == p->GetGroup()); }
-        void UninviteFromGroup();
-        static void RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method = GROUP_REMOVEMETHOD_DEFAULT, uint64 kicker = 0, const char* reason = NULL);
-        void RemoveFromGroup(RemoveMethod method = GROUP_REMOVEMETHOD_DEFAULT) { RemoveFromGroup(GetGroup(), GetGUID(), method); }
-        void SendUpdateToOutOfRangeGroupMembers();
-        void SendRaidInfo();
-        
-        void _LoadGroup(); // used at login
-        static uint32 GetGroupIdFromStorage(uint32 guid);
-        */
         /************************************************************\
         |******************** TEAM related stuff ********************|
         \************************************************************/
         static uint32 TeamForRace(uint8 race);
-        uint32 GetTeam() const { return _team; } 
+        uint32 GetTeam() const { return _team; }
+        TeamId GetTeamId() const { return _team == ALLIANCE ? TEAM_ALLIANCE : TEAM_HORDE; }
         void setFactionForRace(uint8 race);
         uint8 getRace() const { return _race; }
         uint8 getClass() const { return _class; }
 
         ClientSession* GetSession() const { return m_session; }
-         
+
+        /************************************************************\
+        |****************** ACHIEVES related stuff ******************|
+        \************************************************************/
+        AchievementMgr& GetAchievementMgr() { return m_achievementMgr; }
+        AchievementMgr const& GetAchievementMgr() const { return m_achievementMgr; }
+        void UpdateAchievementCriteria(AchievementCriteriaTypes type, uint32 miscValue1 = 0, uint32 miscValue2 = 0, Unit* unit = NULL);
+        void CompletedAchievement(AchievementEntry const* entry);
+        void ResetAchievementCriteria(AchievementCriteriaTypes type, uint32 miscvalue1, uint32 miscvalue2, bool evenIfCriteriaComplete);
+        void ResetAchievement();
+        void SetCriteriaProgress(AchievementCriteriaEntry const* entry, uint32 changeValue, uint8 ptype);
+        
         /************************************************************\
         |******************* WHISPER related stuff ******************|
         \************************************************************/
@@ -317,28 +261,11 @@ class Player
         uint32 getClass() { return _class; }  
 
         PlayerSocial *GetSocial() { return m_social; }
-
-        // Battleground Group System
-        /*
-        void SetBattlegroundOrBattlefieldRaid(Group *group, int8 subgroup = -1);
-        void RemoveFromBattlegroundOrBattlefieldRaid();
-        Group* GetOriginalGroup() { return m_originalGroup.getTarget(); }
-        GroupReference& GetOriginalGroupRef() { return m_originalGroup; }
-        uint8 GetOriginalSubGroup() const { return m_originalGroup.getSubGroup(); }
-        void SetOriginalGroup(Group* group, int8 subgroup = -1);*/
-
-
-        bool IsPvPFlagged();
-        bool IsPvP();
-        bool IsFFAPvP();
-
-        void SendToNode(uint32 n, uint32 m) { GetSession()->SendToNode(n, m); };
-        uint32 GetGroupGUID() { return groupGUID; };
-        uint32 SetGroupGUID(uint32 g) { groupGUID = g; };
     
     protected:
         // Gamemaster whisper whitelist
-        WhisperListContainer WhisperList; 
+        WhisperListContainer WhisperList;
+
     private:
         //Critical
         ACE_Thread_Mutex Lock;
@@ -349,7 +276,9 @@ class Player
         uint64 m_GUID;
         std::string m_name;
 
-        uint8 _level; 
+        uint8 _level;
+
+        AchievementMgr m_achievementMgr; 
 
         uint16 m_valuesCount;
         union
@@ -359,18 +288,8 @@ class Player
             float  *m_floatValues;
         };
 
-        // received from nodes
-        uint32 health;
-        uint32 power; 
-        uint32 maxhealth;
-        uint32 maxpower;
-        DeathState _deathState;
-
-        //bool IsFFAPvP() const { return HasByteFlag(UNIT_FIELD_BYTES_2, 1, UNIT_BYTE2_FLAG_FFA_PVP); }
-
-
         //Pos and Area
-        uint32 _mapId;
+        uint32 mapId;
         uint32 _areaId;
         uint32 _zoneId;
         float positionX;
@@ -390,24 +309,9 @@ class Player
 
         // Social
         PlayerSocial *m_social;
-        
-        // Groups
-        /*
-        GroupReference m_group;
-        GroupReference m_originalGroup;
-        Group* m_groupInvite;
-        uint32 m_groupUpdateMask;
-        uint64 m_auraRaidUpdateMask;
-        bool m_bPassOnGroupLoot;*/
-        uint32 groupGUID;
 
         //BattleGround
         bool _IsInBattleGround;
-
-        // Guiilds, should be private
-        uint32 m_GuildIdInvited;
-        uint32 m_GuildId;
-        uint32 m_GuildRankid;
 };
 
 #endif

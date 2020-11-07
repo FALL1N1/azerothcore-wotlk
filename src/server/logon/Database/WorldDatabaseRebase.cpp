@@ -8,8 +8,7 @@
 #include "ControlSessionMgr.h"
 #include "ClusterDefines.h"
 #include "ObjectMgr.h"
-#include "RoutingHelper.h"
-
+#include "RoutingHelper.h" 
 #include "WorldDatabaseRebase.h"
 #include "DatabaseRoutines.h"
 
@@ -26,8 +25,7 @@ void WorldDatabaseRebase::Begin()
         sLog->outString(">> Loaded 0 creature GUIDs.");
         sLog->outString();
         return;
-    }
-
+    } 
     uint32 count = 0;
     do
     { 
@@ -74,6 +72,7 @@ void WorldDatabaseRebase::RebaseCreatures()
         sLog->outString(">> no temp_creature found!");
         return;
     }
+     
 
     do
     {
@@ -117,6 +116,7 @@ void WorldDatabaseRebase::RebaseCreatureAddons()
         sLog->outString(">> no temp_creature_addon found!");
         return;
     }
+     
 
     do
     {
@@ -157,11 +157,12 @@ void WorldDatabaseRebase::RebaseCreatureFormations()
         sLog->outString();
         sLog->outString(">> no temp_creature_formations found!");
         return;
-    }
+    } 
 
     do
     {
-        Field* fields = result->Fetch(); 
+        Field* fields = result->Fetch();
+         
 
         CreatureMap::const_iterator itr = _CreatureGUIDs.find(fields[0].GetUInt32());
         CreatureMap::const_iterator iter_two = _CreatureGUIDs.find(fields[1].GetUInt32());
@@ -200,6 +201,7 @@ void WorldDatabaseRebase::RebaseLinkedRespawn()
         sLog->outString(">> no temp_linked_respawn found!");
         return;
     }
+     
 
     do
     {
@@ -208,7 +210,7 @@ void WorldDatabaseRebase::RebaseLinkedRespawn()
 
         if (itr == _CreatureGUIDs.end())
             continue;
-
+         
         new_guid = itr->second;
 
         if (counter == 0)

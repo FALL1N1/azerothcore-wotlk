@@ -50,7 +50,9 @@ namespace AccountMgr
     std::string CalculateShaPassHash(std::string& name, std::string& password);
 
     bool normalizeString(std::string& utf8String);
-    bool IsPlayerAccount(uint32 gmlevel); 
+    bool IsPlayerAccount(uint32 gmlevel);
+    bool IsVIPAccount(uint32 gmlevel);
+    bool IsVIPorPlayer(uint32 gmlevel);
     bool IsModeratorAccount(uint32 gmlevel);
     bool IsGMAccount(uint32 gmlevel);
     bool IsAdminAccount(uint32 gmlevel);

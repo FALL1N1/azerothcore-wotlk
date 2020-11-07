@@ -3,19 +3,22 @@
 
 #include <atomic>
 
-#include "Logon.h" 
+#include "Logon.h"
+#include "AddonMgr.h"
 #include "DatabaseEnv.h"
-#include "ByteBuffer.h"   
+#include "ByteBuffer.h"
+#include "Logon.h" 
 
 //DEPS
-//#include "Group.h"
+#include "Groups.h"
 
 class WorldPacket;
 class ByteBuffer;
 class ClientSocket;
 class NodeSocket;
 class Player;
-class LoginQueryHolder; 
+class LoginQueryHolder;
+class Warden;
 
 enum AccountDataType
 {
@@ -42,14 +45,6 @@ struct AccountData
     std::string Data;
 };
 
-enum PartyOperation
-{
-    PARTY_OP_INVITE = 0,
-    PARTY_OP_UNINVITE = 1,
-    PARTY_OP_LEAVE = 2,
-    PARTY_OP_SWAP = 4
-};
-
 enum SessionFlags
 {
     FLAG_ACCOUNT_RECONNECT      = 0x00000001,
@@ -60,14 +55,6 @@ enum SessionFlags
     FLAG_FORCE_TELEPORT         = 0x00000040,
     FLAG_INFORMED_SERVER_DOWN   = 0x00000080,
     FLAG_ACCOUNT_KICKED         = 0x00000100,
-}; 
-
-enum CharterTypes
-{
-    GUILD_CHARTER_TYPE = 9,
-    ARENA_TEAM_CHARTER_2v2_TYPE = 2,
-    ARENA_TEAM_CHARTER_3v3_TYPE = 3,
-    ARENA_TEAM_CHARTER_5v5_TYPE = 5
 };
 
 //Temp use
@@ -157,7 +144,8 @@ public:
     void SendPlayerNotFoundNotice(std::string name);
     void SendWrongFactionNotice();
     void SendNotification(const char *format, ...) ATTR_PRINTF(2, 3);
-    void SendNotification(uint32 string_id, ...); 
+    void SendNotification(uint32 string_id, ...);
+    void SendPartyResult(PartyOperation operation, const std::string& member, PartyResult res, uint32 val = 0);
     void SendPlayerLogin();
 
     /*********************************************************/
@@ -165,7 +153,6 @@ public:
     /*********************************************************/
     void KickPlayer();
     void PlayerLogout();
-    bool PlayerLoggingOut() const { return m_playerLogout; }
     void SetPlayer(Player *plr);
     Player* GetPlayer() const { return _player; }
     uint64 GetGuid() { return _GUID; }
@@ -213,7 +200,9 @@ public:
 
     void SaveTutorialsData(SQLTransaction& trans);
 
-    void SendServerMessageToPlayer(Player* player, const char* msg);
+    //Warden
+    void InitWarden(BigNumber *K);
+
     void SetStunned(bool apply);
 
 
@@ -237,7 +226,10 @@ public:
 
     //Temp use
     void SMSG_LOGIN_VERIFY_WORLD(WorldPacket& recvPacket);
- 
+
+    //Groups
+    void HandleGroupInviteOpcode(WorldPacket& recvPacket);
+
     //Channels
     void HandleJoinChannel(WorldPacket& recvPacket);
     void HandleLeaveChannel(WorldPacket& recvPacket);
@@ -267,10 +259,18 @@ public:
     void HandleGMSurveySubmit(WorldPacket& recvPacket);
     void HandleReportLag(WorldPacket& recvPacket);
     void HandleGMResponseResolve(WorldPacket& recvPacket);
-     
+
     /************************************************************\
     |******************** SocialHandler stuff *******************|
-    \************************************************************/ 
+    \************************************************************/
+    void HandleContactListOpcode(WorldPacket& recvPacket);
+    void HandleAddFriendOpcode(WorldPacket& recvPacket);
+    void HandleAddFriendOpcodeCallBack(PreparedQueryResult result, std::string friendNote);
+    void HandleDelFriendOpcode(WorldPacket& recvPacket);
+    void HandleAddIgnoreOpcode(WorldPacket& recvPacket);
+    void HandleAddIgnoreOpcodeCallBack(PreparedQueryResult result);
+    void HandleDelIgnoreOpcode(WorldPacket& recvPacket);
+    void HandleSetContactNotesOpcode(WorldPacket& recvPacket);
 
     //ClientHandlings
 public:
@@ -313,8 +313,6 @@ public:
 
     bool CharCanLogin(uint32 lowGUID) { return _allowedCharsToLogin.find(lowGUID) != _allowedCharsToLogin.end(); }
     std::set<uint32> _allowedCharsToLogin;
-    void SendToNode(uint32 n, uint32 m);
-    uint32 GetCurrentNode() { return _nodeId; }
 
 private:
 
@@ -335,7 +333,8 @@ private:
     bool                    _authed;
     uint8                   _expansion;
     AccountTypes            _security;
-    AccountData             _accountData[NUM_ACCOUNT_DATA_TYPES]; 
+    AccountData             _accountData[NUM_ACCOUNT_DATA_TYPES];
+    AddonsList              _addonsList;
 
     ///- TUTORIAL SETTINGS
     bool                    _TutorialsChanged;
@@ -343,8 +342,8 @@ private:
 
     ///- LOCALES SETTINGS
     LocaleConstant          _sessionDbcLocale;
-    LocaleConstant          _sessionDbLocaleIndex;
-     
+    LocaleConstant          _sessionDbLocaleIndex; 
+
     //Temp
     ChannelList m_chlist;
 
@@ -352,11 +351,7 @@ private:
     uint64 _GUID;
     uint32 _GUIDLow;
     Player *_player;
-    bool m_inQueue;                                     // session wait in auth.queue
-    bool m_playerLoading;                               // code processed in LoginPlayer
-    bool m_playerLogout;                                // code processed in LogoutPlayer
-    bool m_playerSave;
-    bool m_playerRecentlyLogout;
+    bool m_playerLoading;
     uint32 m_loginDelay;
     uint32 m_DoSStrikes;
 
