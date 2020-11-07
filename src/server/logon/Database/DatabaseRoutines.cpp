@@ -104,7 +104,7 @@ void RebaseClass::Begin()
         sLog->outString(">> Loaded 0 item_instance GUIDs.");
         sLog->outString();
         return;
-    } 
+    }
     uint32 count = 0;
     do
     { 
@@ -162,7 +162,7 @@ void RebaseClass::Begin()
     Logon::ContinueNow(); 
 
     //Set the realm online
-    LoginDatabase.DirectPExecute("UPDATE realmlist SET color = color & 1, population = 0 WHERE id = '%u'", realmID);
+    LoginDatabase.DirectPExecute("UPDATE realmlist SET flag = flag & 1, population = 0 WHERE id = '%u'", realmID);
 }
 
 void RebaseClass::Init()

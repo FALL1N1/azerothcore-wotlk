@@ -39,28 +39,71 @@ struct TrinityStringLocale
     StringVector Content;
 };
 
-typedef std::unordered_map<int32, TrinityStringLocale> TrinityStringLocaleContainer;
 
-// Trinity string ranges
-#define MIN_TRINITY_STRING_ID           1                    // 'trinity_string'
-#define MAX_TRINITY_STRING_ID           2000000000
+enum ScriptsType
+{
+    SCRIPTS_FIRST = 1,
 
+    SCRIPTS_SPELL = SCRIPTS_FIRST,
+    SCRIPTS_EVENT,
+    SCRIPTS_WAYPOINT,
+
+    SCRIPTS_LAST
+};
+
+enum eScriptFlags
+{
+    // Talk Flags
+    SF_TALK_USE_PLAYER = 0x1,
+
+    // Emote flags
+    SF_EMOTE_USE_STATE = 0x1,
+
+    // TeleportTo flags
+    SF_TELEPORT_USE_CREATURE = 0x1,
+
+    // KillCredit flags
+    SF_KILLCREDIT_REWARD_GROUP = 0x1,
+
+    // RemoveAura flags
+    SF_REMOVEAURA_REVERSE = 0x1,
+
+    // CastSpell flags
+    SF_CASTSPELL_SOURCE_TO_TARGET = 0,
+    SF_CASTSPELL_SOURCE_TO_SOURCE = 1,
+    SF_CASTSPELL_TARGET_TO_TARGET = 2,
+    SF_CASTSPELL_TARGET_TO_SOURCE = 3,
+    SF_CASTSPELL_SEARCH_CREATURE = 4,
+    SF_CASTSPELL_TRIGGERED = 0x1,
+
+    // PlaySound flags
+    SF_PLAYSOUND_TARGET_PLAYER = 0x1,
+    SF_PLAYSOUND_DISTANCE_SOUND = 0x2,
+
+    // Orientation flags
+    SF_ORIENTATION_FACE_TARGET = 0x1,
+};
+
+ 
 typedef std::unordered_map<uint64, Player*> PlayerMap;
 
 class ObjectMgr
 {
     public:
-        //Zug�nge zu unseren Playern
         void Player_Add(Player* player);
         void Player_Remove(Player* player);
 
+        typedef std::vector<std::string> ScriptNameContainer;
         Player* GetPlayer(uint64 GUID);
         Player* FindPlayer(uint64 GUID);
+        Player* FindPlayerInOrOutOfWorld(uint64 GUID);
         Player* FindPlayerByName(const char* name);
+        Player* FindPlayerByName(std::string name);
         bool GetPlayerNameByGUID(uint64 guid, std::string &name) const;
         uint64 GetPlayerGUIDByName(std::string name) const;
         uint32 GetPlayerAccountIdByGUID(uint64 guid) const;
-        uint32 GetPlayerAccountIdByPlayerName(const std::string& name) const;
+        uint32 GetPlayerAccountIdByPlayerName(const std::string& name) const; 
+
 
         PlayerInfo const* GetPlayerInfo(uint32 race, uint32 class_) const
         {
@@ -78,6 +121,11 @@ class ObjectMgr
         //GUID_Handlings
         void SetHighestGuids();
         uint32 IncreaseGroupId(); 
+        
+        void LoadScriptNames();
+        ScriptNameContainer &GetScriptNames() { return _scriptNamesStore; }
+        const char * GetScriptName(uint32 id) const { return id < _scriptNamesStore.size() ? _scriptNamesStore[id].c_str() : ""; }
+        uint32 GetScriptId(const char *name);
 
         // first free id for selected id type
         uint32 m_auctionid;
@@ -104,8 +152,12 @@ class ObjectMgr
         ACE_Based::LockedQueue<Player*, ACE_RW_Mutex> _DelPlayer;
         PlayerMap           m_PlayerMap;
 
-        LocaleConstant DBCLocaleIndex;
-        TrinityStringLocaleContainer _trinityStringLocaleStore;
+        LocaleConstant DBCLocaleIndex; 
+        ScriptNameContainer _scriptNamesStore;
+        
+        
+        void LoadScripts(ScriptsType type);
+        void CheckScripts(ScriptsType type, std::set<int32>& ids);
 
         //PlayerZeugs
         PlayerInfo playerInfo[MAX_RACES][MAX_CLASSES];

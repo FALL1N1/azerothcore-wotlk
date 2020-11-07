@@ -158,8 +158,8 @@ std::string GmTicket::FormatMessageString(ChatHandler& handler, bool detailed) c
     std::stringstream ss;
     ss << handler.PGetParseString(LANG_COMMAND_TICKETLISTGUID, _id);
     ss << handler.PGetParseString(LANG_COMMAND_TICKETLISTNAME, handler.playerLink(_playerName).c_str());
-    //ss << handler.PGetParseString(LANG_COMMAND_TICKETLISTAGECREATE, (secsToTimeString(curTime - _createTime, true, false)).c_str());
-   // ss << handler.PGetParseString(LANG_COMMAND_TICKETLISTAGE, (secsToTimeString(curTime - _lastModifiedTime, true, false)).c_str());
+    ss << handler.PGetParseString(LANG_COMMAND_TICKETLISTAGECREATE, (secsToTimeString(curTime - _createTime, true)).c_str());
+    ss << handler.PGetParseString(LANG_COMMAND_TICKETLISTAGE, (secsToTimeString(curTime - _lastModifiedTime, true)).c_str());
 
     std::string name;
     if (sObjectMgr->GetPlayerNameByGUID(_assignedTo, name))
@@ -282,7 +282,17 @@ void TicketMgr::LoadTickets()
 }
 
 void TicketMgr::LoadSurveys()
-{ 
+{
+    return;
+    // we don't actually load anything into memory here as there's no reason to
+    _lastSurveyId = 0;
+
+    uint32 oldMSTime = getMSTime();
+    if (QueryResult result = CharacterDatabase.Query("SELECT MAX(surveyId) FROM gm_surveys"))
+        _lastSurveyId = (*result)[0].GetUInt32();
+
+    sLog->outString(">> Loaded GM Survey count from database in %u ms", GetMSTimeDiffToNow(oldMSTime));
+    sLog->outString();
 }
 
 void TicketMgr::AddTicket(GmTicket* ticket)

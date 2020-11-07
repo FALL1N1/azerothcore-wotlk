@@ -143,10 +143,9 @@ class Items
         void WarmingCache();
         ItemTemplate const* GetItemTemplate(uint32 entry);
         void CacheItemTemplate(ItemTemplate* item);
-
-    private:
-        ACE_RW_Thread_Mutex rwMutex_;
         ItemTemplateContainer _itemTemplateStore;
+    private:
+        ACE_RW_Thread_Mutex rwMutex_; 
 
 };
 #define sItems ACE_Singleton<Items, ACE_Null_Mutex>::instance()

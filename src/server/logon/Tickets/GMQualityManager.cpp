@@ -51,44 +51,9 @@ void GMQualityItem::AddPlayerText(ChatMsg type, std::string text, std::string re
 
 void GMQualityItem::SaveToDB(uint32 ticket, GmTicket* pGmTicket)
 {
-    /*
-    SQLTransaction trans = LogDatabase.BeginTransaction();
+ 
 
-    PreparedStatement* stmt = LogDatabase.GetPreparedStatement(LOG_INS_GM_LOG);
-    stmt->setUInt32(0, ticket);
-    stmt->setUInt32(1, gmAccId);
-    stmt->setString(2, gmAccName);
-    stmt->setUInt8(3, securityLevel);
-    stmt->setUInt32(4, playerAccId);
-    stmt->setString(5, playerAccName);
-    stmt->setString(6, gmText.str());
-    stmt->setString(7, playerText.str());
-    trans->Append(stmt);
 
-    if (pGmTicket)
-    {
-        PreparedStatement* ticketStmt = LogDatabase.GetPreparedStatement(LOG_INS_GM_TICKET_LOG);
-        ticketStmt->setUInt32(0, ticket);
-        ticketStmt->setUInt32(1, GUID_LOPART(pGmTicket->GetPlayerGUID()));
-        ticketStmt->setString(2, pGmTicket->GetPlayerName());
-        ticketStmt->setString(3, pGmTicket->GetMessage());
-        ticketStmt->setUInt32(4, uint32(pGmTicket->GetCreateTime()));
-        ticketStmt->setUInt16(5, pGmTicket->GetMapId());
-        ticketStmt->setFloat(6, pGmTicket->GetPositionX());
-        ticketStmt->setFloat(7, pGmTicket->GetPositionY());
-        ticketStmt->setFloat(8, pGmTicket->GetPositionZ());
-        ticketStmt->setUInt32(9, uint32(pGmTicket->GetLastModifiedTime()));
-        ticketStmt->setInt32(10, GUID_LOPART(pGmTicket->GetClosedByGUID()));
-        ticketStmt->setUInt32(11, GUID_LOPART(pGmTicket->GetAssignedToGUID()));
-        ticketStmt->setString(12, pGmTicket->GetComment());
-        ticketStmt->setBool(13, pGmTicket->IsCompleted());
-        ticketStmt->setUInt8(14, uint8(pGmTicket->GetEscalatedStatus()));
-        ticketStmt->setBool(15, pGmTicket->IsViewed());
-        trans->Append(ticketStmt);
-    }
-
-    LogDatabase.CommitTransaction(trans);
-    */
 }
 
 std::string GMQualityItem::getAccountNameById(uint32 accId)
@@ -120,19 +85,8 @@ GMQ::~GMQualityManager()
 
 void GMQ::Load()
 {
-    /* 
-    uint32 oldMSTime = getMSTime();
 
-    PreparedStatement* stmt = LogDatabase.GetPreparedStatement(LOG_SEL_GM_LOG_TICKETID);
-    PreparedQueryResult result = LogDatabase.Query(stmt);
-    if (result)
-    {
-        Field* fields = result->Fetch();
-        lastTicketId = fields->GetUInt32();
-    }
 
-    sLog->outString(">> Loaded GM Quality Manager in %u ms", GetMSTimeDiffToNow(oldMSTime));
-    sLog->outString();*/
 }
 
 void GMQ::OnTicketAssign(GmTicket* pGmTicket)
@@ -313,17 +267,6 @@ void GMQ::outGMChatLogDB(ChatMsg type, Player* pPlayer, std::string text, std::s
 
 void GMQ::outGMChatLogDB(ChatMsg type, int32 accId, std::string text, std::string receiver)
 {
-    std::string accName = "Unknown";
-    AccountMgr::GetName(std::abs(accId), accName);
-    uint8 securityLevel = AccountMgr::GetSecurity(std::abs(accId));
 
-    /*PreparedStatement* stmt = LogDatabase.GetPreparedStatement(LOG_INS_GM_CHAT_LOG);
-    stmt->setUInt32(0, time(NULL));
-    stmt->setInt32(1, accId);
-    stmt->setString(2, accName);
-    stmt->setUInt8(3, securityLevel);
-    stmt->setInt8(4, type);
-    stmt->setString(5, receiver);
-    stmt->setString(6, text);
-    LogDatabase.Execute(stmt);*/
+
 }

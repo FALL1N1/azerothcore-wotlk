@@ -28,8 +28,7 @@ class ControlSessionMgr
 
         ControlSession* findNodebyID(uint32 id);
 
-        void SendGlobal(WorldPacket* packet);
-        void SendToNodeType(uint8 Type, WorldPacket* packet);
+        void SendGlobal(WorldPacket* packet); 
 
     private:
         void AddSession_(ControlSession* s);

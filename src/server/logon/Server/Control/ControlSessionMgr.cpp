@@ -57,14 +57,4 @@ void ControlSessionMgr::SendGlobal(WorldPacket* packet)
 {
     for (CtrlSessionMap::const_iterator itr = m_sessions.begin(); itr != m_sessions.end(); itr++)
         itr->second->SendPacket(packet);
-}
-
-//Send to specified Nodes
-void ControlSessionMgr::SendToNodeType (uint8 Type, WorldPacket *packet)
-{
-    for (CtrlSessionMap::const_iterator itr = m_sessions.begin(); itr != m_sessions.end(); itr++)
-    {
-        if (itr->second->GetNodeType() == Type)
-            itr->second->SendPacket(packet);
-    }
-}
+} 

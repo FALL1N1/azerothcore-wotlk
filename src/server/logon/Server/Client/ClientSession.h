@@ -6,11 +6,12 @@
 #include "Logon.h"
 #include "AddonMgr.h"
 #include "DatabaseEnv.h"
-#include "ByteBuffer.h"
-#include "Logon.h" 
+#include "ByteBuffer.h" 
+#include "Warden.h"
+#include "SharedDefines.h"
 
 //DEPS
-#include "Groups.h"
+//#include "Group.h"
 
 class WorldPacket;
 class ByteBuffer;
@@ -45,6 +46,14 @@ struct AccountData
     std::string Data;
 };
 
+enum PartyOperation
+{
+    PARTY_OP_INVITE = 0,
+    PARTY_OP_UNINVITE = 1,
+    PARTY_OP_LEAVE = 2,
+    PARTY_OP_SWAP = 4
+};
+
 enum SessionFlags
 {
     FLAG_ACCOUNT_RECONNECT      = 0x00000001,
@@ -55,6 +64,14 @@ enum SessionFlags
     FLAG_FORCE_TELEPORT         = 0x00000040,
     FLAG_INFORMED_SERVER_DOWN   = 0x00000080,
     FLAG_ACCOUNT_KICKED         = 0x00000100,
+}; 
+
+enum CharterTypes
+{
+    GUILD_CHARTER_TYPE = 9,
+    ARENA_TEAM_CHARTER_2v2_TYPE = 2,
+    ARENA_TEAM_CHARTER_3v3_TYPE = 3,
+    ARENA_TEAM_CHARTER_5v5_TYPE = 5
 };
 
 //Temp use
@@ -153,6 +170,7 @@ public:
     /*********************************************************/
     void KickPlayer();
     void PlayerLogout();
+    bool PlayerLoggingOut() const { return m_playerLogout; }
     void SetPlayer(Player *plr);
     Player* GetPlayer() const { return _player; }
     uint64 GetGuid() { return _GUID; }
@@ -200,9 +218,8 @@ public:
 
     void SaveTutorialsData(SQLTransaction& trans);
 
-    //Warden
-    void InitWarden(BigNumber *K);
-
+    //Warden 
+    void SendServerMessageToPlayer(Player* player, const char* msg);
     void SetStunned(bool apply);
 
 
@@ -225,10 +242,7 @@ public:
     void HandleQuestQueryOpcode(WorldPacket & recv_data);
 
     //Temp use
-    void SMSG_LOGIN_VERIFY_WORLD(WorldPacket& recvPacket);
-
-    //Groups
-    void HandleGroupInviteOpcode(WorldPacket& recvPacket);
+    void SMSG_LOGIN_VERIFY_WORLD(WorldPacket& recvPacket); 
 
     //Channels
     void HandleJoinChannel(WorldPacket& recvPacket);
@@ -259,7 +273,7 @@ public:
     void HandleGMSurveySubmit(WorldPacket& recvPacket);
     void HandleReportLag(WorldPacket& recvPacket);
     void HandleGMResponseResolve(WorldPacket& recvPacket);
-
+      
     /************************************************************\
     |******************** SocialHandler stuff *******************|
     \************************************************************/
@@ -312,7 +326,8 @@ public:
     PreparedQueryResultFuture _addIgnoreCallback;
 
     bool CharCanLogin(uint32 lowGUID) { return _allowedCharsToLogin.find(lowGUID) != _allowedCharsToLogin.end(); }
-    std::set<uint32> _allowedCharsToLogin;
+    std::set<uint32> _allowedCharsToLogin; 
+    uint32 GetCurrentNode() { return _nodeId; }
 
 private:
 
@@ -342,7 +357,10 @@ private:
 
     ///- LOCALES SETTINGS
     LocaleConstant          _sessionDbcLocale;
-    LocaleConstant          _sessionDbLocaleIndex; 
+    LocaleConstant          _sessionDbLocaleIndex;
+
+    // Warden 
+    Warden* m_Warden;
 
     //Temp
     ChannelList m_chlist;
@@ -351,7 +369,11 @@ private:
     uint64 _GUID;
     uint32 _GUIDLow;
     Player *_player;
-    bool m_playerLoading;
+    bool m_inQueue;                                     // session wait in auth.queue
+    bool m_playerLoading;                               // code processed in LoginPlayer
+    bool m_playerLogout;                                // code processed in LogoutPlayer
+    bool m_playerSave;
+    bool m_playerRecentlyLogout;
     uint32 m_loginDelay;
     uint32 m_DoSStrikes;
 

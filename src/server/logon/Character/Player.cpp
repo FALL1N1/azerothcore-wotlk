@@ -7,16 +7,14 @@
 #include "WorldPacket.h"
 #include "Opcodes.h"
 #include "Language.h"
-#include "SocialMgr.h"
-
+#include "SocialMgr.h"  
 #include "Channel.h"
 #include "ChannelMgr.h"
-#include "Chat.h"
-
+#include "Chat.h" 
 #include "Creatures.h"
 #include "Items.h"
-
 #include "LoginHolderEnum.h"
+#include "PetitionMgr.h"
 
 enum CharacterFlags
 {
@@ -74,6 +72,7 @@ m_session(session), m_PackGUID(sizeof(uint64)+1), m_achievementMgr(this), m_GUID
     m_ExtraFlags = 0;
     m_social = NULL;
     _IsInBattleGround = false;
+    //SetGroupInvite(NULL);
 }
 
 Player::~Player()
@@ -84,7 +83,13 @@ void Player::Logout(uint32 accountId)
     ///- Broadcast a logout message to the player's friends
     sSocialMgr->SendFriendStatus(this, FRIEND_OFFLINE, GetGUIDLow(), true);
     sSocialMgr->RemovePlayerSocial(GetGUIDLow());
-
+    /*if (GetGroup()) {
+        sLog->outString("GROUP UPDATE ON LOGOUT FOR %s(%u)", GetName(), GetGUID());
+        GetGroup()->SendUpdate();
+        // GetGroup()->SendUpdateToPlayer(); // we don't need it here
+        SetGroupUpdateFlag(GROUP_UPDATE_FULL);
+    }*/
+         
     ///- Leave all Channels before Logout
     CleanupChannels();
 }
@@ -124,7 +129,8 @@ bool Player::LoadFromDB(uint32 guid, SQLQueryHolder *holder)
     _team = TeamForRace(_race);
     _level = fields[6].GetUInt8();
     m_flags = fields[11].GetUInt32();
-    mapId = fields[15].GetUInt16();
+    _mapId = fields[15].GetUInt16();
+
     
     // GM state
     uint32 extraflags = fields[31].GetUInt16();
@@ -186,10 +192,33 @@ bool Player::LoadFromDB(uint32 guid, SQLQueryHolder *holder)
     m_achievementMgr.LoadFromDB(holder->GetPreparedResult(PLAYER_LOGIN_QUERY_LOADACHIEVEMENTS), holder->GetPreparedResult(PLAYER_LOGIN_QUERY_LOADCRITERIAPROGRESS));
     // load the socials
     m_social = sSocialMgr->LoadFromDB(holder->GetPreparedResult(PLAYER_LOGIN_QUERY_LOADSOCIALLIST), GetGUIDLow());
-
+    //_LoadGroup();
     return true;
 
 }
+/*
+void Player::_LoadGroup()
+{
+    if (uint32 groupId = GetGroupIdFromStorage(GetGUIDLow()))
+        if (Group* group = sGroupMgr->GetGroupByGUID(groupId))
+            if (group->GetMemberGroup(GetGUID()) <= MAX_RAID_SUBGROUPS)
+            {
+                if (group->IsLeader(GetGUID()))
+                    SetFlag(PLAYER_FLAGS_GROUP_LEADER);
+
+                uint8 subgroup = group->GetMemberGroup(GetGUID());
+                SetGroup(group, subgroup);
+
+                // the group leader may change the instance difficulty while the player is offline
+                SetDungeonDifficulty(group->GetDungeonDifficulty());
+                SetRaidDifficulty(group->GetRaidDifficulty());
+            }
+
+    if (!GetGroup() || !GetGroup()->IsLeader(GetGUID()))
+        RemoveFlag(PLAYER_FLAGS_GROUP_LEADER);
+}
+
+*/ 
 
 void Player::SendInitialPackets()
 {
@@ -248,21 +277,57 @@ void Player::RemoveFlag(uint32 oldFlag)
 //Zone/Area-Related things
 void ClientSession::Handle_NODE_PLAYER_CHANGED_ZONE(WorldPacket& recvPacket)
 {
-    uint32 zone, area;
+    uint32 zone, area, mapid;
     recvPacket >> zone;
     recvPacket >> area;
+    recvPacket >> mapid;
 
-    GetPlayer()->UpdateZone(zone,area);
+    GetPlayer()->UpdateZone(zone,area, mapid);
 }
 
-void Player::UpdateZone(uint32 newZone, uint32 newArea)
+void Player::UpdateZone(uint32 newZone, uint32 newArea, uint32 mapId)
 {
+    // we'll see if we would separate wintergrasp, let's not do it for now
+    bool isWintergrasp = newZone == 4197 ? true : false;
+    int32 WGNode = 12345;
+/*
+    // routing to the new map node (if any)
+    // check if we changed zone
+    if (_mapId != mapId)
+    {
+        int32 mapNode = -1; mapNode = sRoutingHelper->GetNodeForMap(mapId);
+        if (mapNode >= 0)
+        {
+            sLog->outString("mapNode: %u != curnode: %u", mapNode, GetSession()->GetCurrentNode());
+            if (mapNode != GetSession()->GetCurrentNode())
+            {
+                sLog->outString("[NodeSWAP] Player %s(%u) changed zone/map and moved to appropriate node.");
+                sLog->outString("[NodeSWAP] Old node: %u   New node: %u", GetSession()->GetCurrentNode(), sRoutingHelper->GetNodeForMap(mapId));
+                GetSession()->SendToNode(mapNode, mapId);
+            }
+        }
+    } 
+*/
     //This could be critical
     ACORE_GUARD(ACE_Thread_Mutex, Lock);
     {
         _areaId = newArea;
         _zoneId = newZone;
+        _mapId = mapId;
     }
+
+    // group update
+    /*if (Group* grp = GetGroup())
+    {
+        //sLog->outString("has group, %u : %s", GetGUID(), GetName());
+        grp->SendUpdate();
+        grp->SendUpdateToPlayer(GetGUID());
+        SetGroupUpdateFlag(GROUP_UPDATE_FULL);
+    } */
+
+    sLog->outString("PLAYER MOVED TO A NEW ZONE/AREA: %u, %u, %u", newArea, newZone, mapId);
+
+     
 }
 
 void ClientSession::Handle_SMSG_LEVELUP_INFO(WorldPacket& recvPacket)
@@ -271,6 +336,7 @@ void ClientSession::Handle_SMSG_LEVELUP_INFO(WorldPacket& recvPacket)
     recvPacket >> level;
     _player->SetLevelUp(level);
     recvPacket.rfinish();
+     
 }
 
 /************************************************************\
@@ -407,13 +473,14 @@ bool Player::IsVisibleGloballyFor(Player* u) const
 
 bool Player::BuildEnumData(PreparedQueryResult result, WorldPacket* data)
 {
-    sLog->outString("Player::BuildEnumData");
-    //             0               1                2                3                 4                  5                       6                        7
-    //    "SELECT characters.guid, characters.name, characters.race, characters.class, characters.gender, characters.playerBytes, characters.playerBytes2, characters.level, "
-    //     8                9               10                     11                     12                     13                    14
-    //    "characters.zone, characters.map, characters.position_x, characters.position_y, characters.position_z, guild_member.guildid, characters.playerFlags, "
-    //    15                    16                   17                     18                   19               20                     21
-    //    "characters.at_login, character_pet.entry, character_pet.modelid, character_pet.level, characters.data, character_banned.guid, character_declinedname.genitive "
+    //             0               1                2                3                 4                  5                 6               7
+    //    "SELECT characters.guid, characters.name, characters.race, characters.class, characters.gender, characters.skin, characters.face, characters.hairStyle,
+    //     8                     9                       10              11               12              13                     14                     15
+    //    characters.hairColor, characters.facialStyle, character.level, characters.zone, characters.map, characters.position_x, characters.position_y, characters.position_z,
+    //    16                    17                      18                   19                   20                     21                   22               23
+    //    guild_member.guildid, characters.playerFlags, characters.at_login, character_pet.entry, character_pet.modelid, character_pet.level, characters.equipmentCache, character_banned.guid,
+    //    24                      25
+    //    characters.extra_flags, character_declinedname.genitive
 
     Field* fields = result->Fetch();
 
@@ -422,46 +489,51 @@ bool Player::BuildEnumData(PreparedQueryResult result, WorldPacket* data)
     uint8 plrClass = fields[3].GetUInt8();
     uint8 gender = fields[4].GetUInt8();
 
-    /*PlayerInfo const* info = sObjectMgr->GetPlayerInfo(plrRace, plrClass);
+    PlayerInfo const* info = sObjectMgr->GetPlayerInfo(plrRace, plrClass);
     if (!info)
     {
         sLog->outError("Player %u has incorrect race/class pair. Don't build enum.", guid);
+        //return false;
+    }
+    else if (gender > 2)
+    {
+        sLog->outError("Player (%u) has incorrect gender (%u), don't build enum.", guid, gender);
         return false;
     }
-    else if (!IsValidGender(gender))
-    {
-        sLog->outError("Player (%u) has incorrect gender (%hu), don't build enum.", guid, gender);
-        return false;
-    }*/
 
     *data << uint64(MAKE_NEW_GUID(guid, 0, HIGHGUID_PLAYER));
-    *data << fields[1].GetString();                         // name
-    *data << uint8(plrRace);                                // race
-    *data << uint8(plrClass);                               // class
-    *data << uint8(gender);                                 // gender
+    *data << fields[1].GetString();                          // name
+    *data << uint8(plrRace);                                 // race
+    *data << uint8(plrClass);                                // class
+    *data << uint8(gender);                                  // gender
 
-    uint32 playerBytes = fields[5].GetUInt32();
-    *data << uint8(playerBytes);                            // skin
-    *data << uint8(playerBytes >> 8);                       // face
-    *data << uint8(playerBytes >> 16);                      // hair style
-    *data << uint8(playerBytes >> 24);                      // hair color
-
-    uint32 playerBytes2 = fields[6].GetUInt32();
-    *data << uint8(playerBytes2 & 0xFF);                    // facial hair
-
-    *data << uint8(fields[7].GetUInt8());                   // level
-    *data << uint32(fields[8].GetUInt16());                 // zone
-    *data << uint32(fields[9].GetUInt16());                 // map
-
-    *data << fields[10].GetFloat();                         // x
-    *data << fields[11].GetFloat();                         // y
-    *data << fields[12].GetFloat();                         // z
-
-    *data << uint32(fields[13].GetUInt32());                // guild id
+    uint8 skin = fields[5].GetUInt8();
+    uint8 face = fields[6].GetUInt8();
+    uint8 hairStyle = fields[7].GetUInt8();
+    uint8 hairColor = fields[8].GetUInt8();
+    uint8 facialStyle = fields[9].GetUInt8();
 
     uint32 charFlags = 0;
-    uint32 playerFlags = fields[14].GetUInt32();
-    uint16 atLoginFlags = fields[15].GetUInt16();
+    uint32 playerFlags = fields[17].GetUInt32();
+    uint16 atLoginFlags = fields[18].GetUInt16();
+    uint32 zone = (atLoginFlags & AT_LOGIN_FIRST) != 0 ? 0 : fields[11].GetUInt16(); // if first login do not show the zone
+
+    *data << uint8(skin);
+    *data << uint8(face);
+    *data << uint8(hairStyle);
+    *data << uint8(hairColor);
+    *data << uint8(facialStyle);
+
+    *data << uint8(fields[10].GetUInt8());                   // level
+    *data << uint32(zone);                                   // zone
+    *data << uint32(fields[12].GetUInt16());                 // map
+
+    *data << fields[13].GetFloat();                          // x
+    *data << fields[14].GetFloat();                          // y
+    *data << fields[15].GetFloat();                          // z
+
+    *data << uint32(fields[16].GetUInt32());                 // guild id
+
     if (playerFlags & PLAYER_FLAGS_HIDE_HELM)
         charFlags |= CHARACTER_FLAG_HIDE_HELM;
     if (playerFlags & PLAYER_FLAGS_HIDE_CLOAK)
@@ -470,17 +542,11 @@ bool Player::BuildEnumData(PreparedQueryResult result, WorldPacket* data)
         charFlags |= CHARACTER_FLAG_GHOST;
     if (atLoginFlags & AT_LOGIN_RENAME)
         charFlags |= CHARACTER_FLAG_RENAME;
-    if (fields[20].GetUInt32())
+    if (fields[23].GetUInt32())
         charFlags |= CHARACTER_FLAG_LOCKED_BY_BILLING;
-    if (sLogon->getBoolConfig(CONFIG_DECLINED_NAMES_USED))
-    {
-        if (!fields[21].GetString().empty())
-            charFlags |= CHARACTER_FLAG_DECLINED;
-    }
-    else
-        charFlags |= CHARACTER_FLAG_DECLINED;
+    charFlags |= CHARACTER_FLAG_DECLINED;
 
-    *data << uint32(charFlags);                             // character flags
+    *data << uint32(charFlags);                              // character flags
 
     // character customize flags
     if (atLoginFlags & AT_LOGIN_CUSTOMIZE)
@@ -501,23 +567,23 @@ bool Player::BuildEnumData(PreparedQueryResult result, WorldPacket* data)
     uint32 petFamily = 0;
 
     // show pet at selection character in character list only for non-ghost character
-    if (result && !(playerFlags & PLAYER_FLAGS_GHOST) && (plrClass == CLASS_WARLOCK || plrClass == CLASS_HUNTER || plrClass == CLASS_DEATH_KNIGHT))
+    /*if (result && !(playerFlags & PLAYER_FLAGS_GHOST) && (plrClass == CLASS_WARLOCK || plrClass == CLASS_HUNTER || (plrClass == CLASS_DEATH_KNIGHT && (fields[21].GetUInt32() & PLAYER_EXTRA_SHOW_DK_PET))))
     {
-        uint32 entry = fields[16].GetUInt32();
-        CreatureTemplate const* creatureInfo = sCreatures->GetCreatureTemplate(entry);
+        uint32 entry = fields[19].GetUInt32();
+        CreatureTemplate const* creatureInfo = sObjectMgr->GetCreatureTemplate(entry);
         if (creatureInfo)
         {
-            petDisplayId = fields[17].GetUInt32();
-            petLevel = fields[18].GetUInt16();
+            petDisplayId = fields[20].GetUInt32();
+            petLevel = fields[21].GetUInt16();
             petFamily = creatureInfo->family;
         }
-    }
+    }*/
 
     *data << uint32(petDisplayId);
     *data << uint32(petLevel);
     *data << uint32(petFamily);
 
-    Tokenizer equipment(fields[19].GetString(), ' ');
+    Tokenizer equipment(fields[22].GetString(), ' ');
     for (uint8 slot = 0; slot < INVENTORY_SLOT_BAG_END; ++slot)
     {
         uint32 visualBase = slot * 2;
@@ -531,13 +597,13 @@ bool Player::BuildEnumData(PreparedQueryResult result, WorldPacket* data)
             continue;
         }
 
-        SpellItemEnchantmentEntry const* enchant = NULL;
+        SpellItemEnchantmentEntry const* enchant = nullptr;
 
         uint32 enchants = GetUInt32ValueFromArray(equipment, visualBase + 1);
         for (uint8 enchantSlot = PERM_ENCHANTMENT_SLOT; enchantSlot <= TEMP_ENCHANTMENT_SLOT; ++enchantSlot)
         {
             // values stored in 2 uint16
-            uint32 enchantId = 0x0000FFFF & (enchants >> enchantSlot*16);
+            uint32 enchantId = 0x0000FFFF & (enchants >> enchantSlot * 16);
             if (!enchantId)
                 continue;
 
@@ -604,6 +670,30 @@ void Player::CleanupChannels()
     sLog->outDebug(LOG_FILTER_CHATSYS, "Player: channels cleaned up!");
 }
 
+bool Player::IsPvPFlagged()
+{
+    return false;
+    //return HasFlag(PLAYER_FLAGS_AFK) ? true : false;
+}
+
+bool Player::IsPvP()
+{
+    return false;
+    //return HasFlag(PLAYER_FLAGS_AFK) ? true : false;
+}
+
+bool Player::IsFFAPvP()
+{
+    return false;
+    //return HasFlag(PLAYER_FLAGS_AFK) ? true : false;
+}
+
+void Player::setDeathState(DeathState s, bool despawn)
+{
+    _deathState = s;
+}
+
+
 /************************************************************\
 |******************** CHAT related stuff ********************|
 \************************************************************/
@@ -658,4 +748,94 @@ void Player::BuildPlayerChat(WorldPacket *data, uint8 msgtype, const std::string
     *data << uint32(text.length() + 1);
     *data << text;
     *data << uint8(GetChatTag());
+}
+
+bool Player::CanJoinToBattleground() const
+{
+    // @nodemgr - hook to get player auras
+    // check Deserter debuff
+    //if (HasAura(26013))
+        //return false;
+
+    return true;
+}
+ 
+uint32 Player::GetGuildIdFromStorage(uint32 guid)
+{
+    if (GlobalPlayerData const* playerData = sLogon->GetGlobalPlayerData(guid))
+        return playerData->guildId;
+    return 0;
+}
+
+void Player::RemovePetitionsAndSigns(uint64 guid, uint32 type)
+{
+    SignatureContainer* signatureStore = sPetitionMgr->GetSignatureStore();
+    uint32 playerGuid = GUID_LOPART(guid);
+
+    for (SignatureContainer::iterator itr = signatureStore->begin(); itr != signatureStore->end(); ++itr)
+    {
+        SignatureMap::iterator signItr = itr->second.signatureMap.find(playerGuid);
+        if (signItr != itr->second.signatureMap.end())
+        {
+            Petition const* petition = sPetitionMgr->GetPetition(itr->first);
+            if (!petition || (type != 10 && type != petition->petitionType))
+                continue;
+
+            // erase this
+            itr->second.signatureMap.erase(signItr);
+
+            uint64 ownerguid = MAKE_NEW_GUID(petition->ownerGuid, 0, HIGHGUID_PLAYER);
+            uint64 petitionguid = MAKE_NEW_GUID(petition->petitionGuid, 0, HIGHGUID_ITEM);
+
+            // send update if charter owner in game
+            //Player* owner = ObjectAccessor::FindPlayerInOrOutOfWorld(ownerguid);
+            //if (owner)
+                //owner->GetSession()->SendPetitionQueryOpcode(petitionguid);
+        }
+    }
+
+    if (type == 10)
+    {
+        PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_ALL_PETITION_SIGNATURES);
+        stmt->setUInt32(0, playerGuid);
+        CharacterDatabase.Execute(stmt);
+    }
+    else
+    {
+        PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_PETITION_SIGNATURE);
+        stmt->setUInt32(0, playerGuid);
+        stmt->setUInt8(1, uint8(type));
+        CharacterDatabase.Execute(stmt);
+    }
+
+    SQLTransaction trans = CharacterDatabase.BeginTransaction();
+    if (type == 10)
+    {
+        PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_PETITION_BY_OWNER);
+        stmt->setUInt32(0, playerGuid);
+        trans->Append(stmt);
+
+        stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_PETITION_SIGNATURE_BY_OWNER);
+        stmt->setUInt32(0, playerGuid);
+        trans->Append(stmt);
+
+        // xinef: clear petition store
+        sPetitionMgr->RemovePetitionByOwnerAndType(playerGuid, 0);
+    }
+    else
+    {
+        PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_PETITION_BY_OWNER_AND_TYPE);
+        stmt->setUInt32(0, playerGuid);
+        stmt->setUInt8(1, uint8(type));
+        trans->Append(stmt);
+
+        stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_PETITION_SIGNATURE_BY_OWNER_AND_TYPE);
+        stmt->setUInt32(0, playerGuid);
+        stmt->setUInt8(1, uint8(type));
+        trans->Append(stmt);
+
+        // xinef: clear petition store
+        sPetitionMgr->RemovePetitionByOwnerAndType(playerGuid, uint8(type));
+    }
+    CharacterDatabase.CommitTransaction(trans);
 }

@@ -889,12 +889,7 @@ void ClientSession::Handle_ServerSide(WorldPacket &recv_data)
 const char *ClientSession::GetTrinityString(int32 entry) const
 {
     return "";// sObjectMgr->GetTrinityString(entry, GetSessionDbLocaleIndex());
-}
-
-void ClientSession::InitWarden(BigNumber *K)
-{
-    //m_Warden.Init(this, K);
-}
+} 
 
 void ClientSession::SetStunned(bool apply)
 {

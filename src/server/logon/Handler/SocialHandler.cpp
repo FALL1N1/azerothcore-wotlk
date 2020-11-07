@@ -10,12 +10,32 @@ void ClientSession::HandleContactListOpcode(WorldPacket & recv_data)
 {
     uint32 unk;
     recv_data >> unk;
-    sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: Received CMSG_CONTACT_LIST - Unk: %d", unk);
+    //sLog->outString("WORLD: Received CMSG_CONTACT_LIST - Unk: %d", unk);
     _player->GetSocial()->SendSocialList(_player);
 }
 
 void ClientSession::HandleAddFriendOpcode(WorldPacket & recv_data)
-{ 
+{
+    //sLog->outString("WORLD: Received CMSG_ADD_FRIEND");
+
+    std::string friendName = GetTrinityString(LANG_FRIEND_IGNORE_UNKNOWN);
+    std::string friendNote;
+
+    recv_data >> friendName;
+
+    recv_data >> friendNote;
+
+    if (!normalizePlayerName(friendName))
+        return;
+
+    //sLog->outString("WORLD: %s asked to add friend : '%s'", GetPlayer()->GetPlayerName().c_str(), friendName.c_str());
+
+    /*PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_GUID_RACE_ACC_BY_NAME);
+
+    stmt->setString(0, friendName);
+
+    _addFriendCallback.SetParam(friendNote);
+    _addFriendCallback.SetFutureResult(CharacterDatabase.AsyncQuery(stmt));*/
 }
 
 void ClientSession::HandleAddFriendOpcodeCallBack(PreparedQueryResult result, std::string friendNote)
@@ -59,7 +79,7 @@ void ClientSession::HandleAddFriendOpcodeCallBack(PreparedQueryResult result, st
                     if (!GetPlayer()->GetSocial()->AddToSocialList(GUID_LOPART(friendGuid), false))
                     {
                         friendResult = FRIEND_LIST_FULL;
-                        sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: %s's friend list is full.", GetPlayer()->GetName());
+                        //sLog->outString("WORLD: %s's friend list is full.", GetPlayer()->GetName());
                     }
                 }
                 GetPlayer()->GetSocial()->SetFriendNote(GUID_LOPART(friendGuid), friendNote);
@@ -69,14 +89,14 @@ void ClientSession::HandleAddFriendOpcodeCallBack(PreparedQueryResult result, st
 
     sSocialMgr->SendFriendStatus(GetPlayer(), friendResult, GUID_LOPART(friendGuid), false);
 
-    sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: Sent (SMSG_FRIEND_STATUS)");
+    //sLog->outString("WORLD: Sent (SMSG_FRIEND_STATUS)");
 }
 
 void ClientSession::HandleDelFriendOpcode(WorldPacket & recv_data)
 {
     uint64 FriendGUID;
 
-    sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: Received CMSG_DEL_FRIEND");
+    //sLog->outString("WORLD: Received CMSG_DEL_FRIEND");
 
     recv_data >> FriendGUID;
 
@@ -84,11 +104,28 @@ void ClientSession::HandleDelFriendOpcode(WorldPacket & recv_data)
 
     sSocialMgr->SendFriendStatus(GetPlayer(), FRIEND_REMOVED, GUID_LOPART(FriendGUID), false);
 
-    sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: Sent motd (SMSG_FRIEND_STATUS)");
+    //sLog->outString("WORLD: Sent motd (SMSG_FRIEND_STATUS)");
 }
 
 void ClientSession::HandleAddIgnoreOpcode(WorldPacket & recv_data)
-{ 
+{
+    //sLog->outString("WORLD: Received CMSG_ADD_IGNORE");
+
+    std::string ignoreName = GetTrinityString(LANG_FRIEND_IGNORE_UNKNOWN);
+
+    recv_data >> ignoreName;
+
+    if (!normalizePlayerName(ignoreName))
+        return;
+
+    sLog->outString("LOGON: %s asked to Ignore: '%s'",
+        GetPlayer()->GetPlayerName().c_str(), ignoreName.c_str());
+
+    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_GUID_BY_NAME_FILTER);
+
+    stmt->setString(0, ignoreName);
+
+    _addIgnoreCallback = CharacterDatabase.AsyncQuery(stmt);
 }
 
 
@@ -126,14 +163,14 @@ void ClientSession::HandleAddIgnoreOpcodeCallBack(PreparedQueryResult result)
 
     sSocialMgr->SendFriendStatus(GetPlayer(), ignoreResult, GUID_LOPART(IgnoreGuid), false);
 
-    sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: Sent (SMSG_FRIEND_STATUS)");
+    sLog->outString("WORLD: Sent (SMSG_FRIEND_STATUS)");
 }
 
 void ClientSession::HandleDelIgnoreOpcode(WorldPacket & recv_data)
 {
     uint64 IgnoreGUID;
 
-    sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: Received CMSG_DEL_IGNORE");
+    //sLog->outString("WORLD: Received CMSG_DEL_IGNORE");
 
     recv_data >> IgnoreGUID;
 
@@ -141,12 +178,12 @@ void ClientSession::HandleDelIgnoreOpcode(WorldPacket & recv_data)
 
     sSocialMgr->SendFriendStatus(GetPlayer(), FRIEND_IGNORE_REMOVED, GUID_LOPART(IgnoreGUID), false);
 
-    sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: Sent motd (SMSG_FRIEND_STATUS)");
+    sLog->outString("WORLD: Sent motd (SMSG_FRIEND_STATUS)");
 }
 
 void ClientSession::HandleSetContactNotesOpcode(WorldPacket & recv_data)
 {
-    sLog->outDebug(LOG_FILTER_NETWORKIO, "CMSG_SET_CONTACT_NOTES");
+    sLog->outString("CMSG_SET_CONTACT_NOTES");
     uint64 guid;
     std::string note;
     recv_data >> guid >> note;

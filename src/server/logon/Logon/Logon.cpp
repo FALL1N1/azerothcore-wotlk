@@ -20,7 +20,9 @@
 #include "Opcodes.h"
 #include "ControlSessionMgr.h"
 #include "ControlSession.h"
-#include "DatabaseRoutines.h" 
+#include "DatabaseRoutines.h"
+#include "Warden.h"
+#include "BattlegroundMgr.h"  
 
 //Caching
 #include "GameObjects.h"
@@ -28,12 +30,9 @@
 #include "Items.h"
 #include "Quest.h"
 
-//Bg-System
-#include "BattlegroundMgr.h"
-
 //Tickets
 #include "TicketMgr.h"
-#include "GMQualityManager.h" 
+#include "GMQualityManager.h"
 
 #include <algorithm>
 #include <functional>
@@ -67,8 +66,8 @@ void Logon::LoadConfigSettings(bool reload)
 {
     if (reload)
         if (!sConfigMgr->Reload())
-        { 
-            sLog->outError("ProxyServer settings reload failed, we can't read settings from ...");
+        {
+            //sLog->outError("ProxyServer settings reload failed, we can't read settings from %s.", sConfigMgr->GetFilename().c_str());
             return;
         }
 
@@ -88,7 +87,7 @@ void Logon::LoadConfigSettings(bool reload)
         sLog->outString("Using DataDir %s", m_dataPath.c_str());
     }
 
-    SetFakeMsg("Ich bin Keazy und stehe auf Blumenkohl.");
+    SetFakeMsg("");
 
     sClientSessionMgr->SetPlayerAmountLimit(sConfigMgr->GetIntDefault("PlayerLimit", 100));
 
@@ -100,9 +99,11 @@ void Logon::LoadConfigSettings(bool reload)
     }
     else
         m_int_configs[CONFIG_PORT_LOGON] = sConfigMgr->GetIntDefault("LogonServerPort", 8085);
-
+    
+    m_int_configs[CONFIG_BATTLEGROUND_INVITATION_TYPE] = sConfigMgr->GetIntDefault("DefaultBGInviteType", 1);
+    m_int_configs[CONFIG_GROUP_VISIBILITY] = sConfigMgr->GetIntDefault("Visibility.GroupMode", 1);
+    
     m_int_configs[CONFIG_SOCKET_TIMEOUTTIME] = sConfigMgr->GetIntDefault("SocketTimeOutTime", 900000);
-    m_int_configs[CONFIG_INTERVAL_DISCONNECT_TOLERANCE] = sConfigMgr->GetIntDefault("DisconnectToleranceInterval", 0);
     m_int_configs[CONFIG_MAX_OVERSPEED_PINGS] = sConfigMgr->GetIntDefault("MaxOverspeedPings",2);
     if (m_int_configs[CONFIG_MAX_OVERSPEED_PINGS] != 0 && m_int_configs[CONFIG_MAX_OVERSPEED_PINGS] < 2)
     {
@@ -209,7 +210,16 @@ void Logon::LoadConfigSettings(bool reload)
     m_bool_configs[CONFIG_GM_LOWER_SECURITY]            = sConfigMgr->GetBoolDefault("GM.LowerSecurity", false);
     m_int_configs[CONFIG_GM_LEVEL_ALLOW_ACHIEVEMENTS]   = sConfigMgr->GetIntDefault("GM.AllowAchievementGain.Level", SEC_ADMINISTRATOR);
 
-    // Chat & Channels 
+    // Chat & Channels
+
+
+    // Warden
+    m_int_configs[CONFIG_WARDEN_NUM_MEM_CHECKS]         = sConfigMgr->GetIntDefault("Warden.NumMemChecks", 3);
+    m_int_configs[CONFIG_WARDEN_NUM_OTHER_CHECKS]       = sConfigMgr->GetIntDefault("Warden.NumOtherChecks", 7);
+    m_int_configs[CONFIG_WARDEN_CLIENT_BAN_DURATION]    = sConfigMgr->GetIntDefault("Warden.BanDuration", 86400);
+    m_int_configs[CONFIG_WARDEN_CLIENT_CHECK_HOLDOFF]   = sConfigMgr->GetIntDefault("Warden.ClientCheckHoldOff", 30);
+    m_int_configs[CONFIG_WARDEN_CLIENT_RESPONSE_DELAY]  = sConfigMgr->GetIntDefault("Warden.ClientResponseDelay", 600);
+
     // Tickets
     m_bool_configs[CONFIG_GMTICKET_ALLOW_TICKETS] = sConfigMgr->GetBoolDefault("GMTicket.AllowTickets", true);
     m_int_configs[CONFIG_GMTICKET_LEVEL_REQ] = sConfigMgr->GetIntDefault("GMTicket.LevelReq", 1);
@@ -217,11 +227,6 @@ void Logon::LoadConfigSettings(bool reload)
 
     // Misc
     m_bool_configs[CONFIG_DIE_COMMAND_MODE] = sConfigMgr->GetBoolDefault("Die.Command.Mode", true);
-
-    // AutoBroadcast
-    m_bool_configs[CONFIG_AUTOBROADCAST] = sConfigMgr->GetBoolDefault("AutoBroadcast.On", false);
-    m_int_configs[CONFIG_AUTOBROADCAST_CENTER] = sConfigMgr->GetIntDefault("AutoBroadcast.Center", 0);
-    m_int_configs[CONFIG_AUTOBROADCAST_INTERVAL] = sConfigMgr->GetIntDefault("AutoBroadcast.Timer", 60000);
 
     // Rates
     {
@@ -307,22 +312,6 @@ void Logon::LoadConfigSettings(bool reload)
     }
 }
 
-void Logon::LoadDBVersion()
-{
-    QueryResult result = WorldDatabase.Query("SELECT db_version, cache_id FROM version LIMIT 1");
-    if (result)
-    {
-        Field* fields = result->Fetch();
-        m_DBVersion = fields[0].GetString();
-
-        // will be overwrite by config values if different and non-0
-        m_int_configs[CONFIG_CLIENTCACHE_VERSION] = fields[1].GetUInt32();
-    }
-
-    if (m_DBVersion.empty())
-        m_DBVersion = "Unknown world database.";
-}
-
 /// Initialize logonserver
 void Logon::SetInitialLogonSettings()
 {
@@ -331,6 +320,10 @@ void Logon::SetInitialLogonSettings()
 
     ///- Initialize the random number generator
     srand((unsigned int)time(NULL));
+
+    sLog->outString();
+    sLog->outString("Deleting expired bans...");
+    LoginDatabase.Execute("DELETE FROM ip_banned WHERE unbandate <= UNIX_TIMESTAMP() AND unbandate<>bandate");      // One-time query
  
     //Update Realmlist
     uint32 server_type;
@@ -349,64 +342,40 @@ void Logon::SetInitialLogonSettings()
     //sGuidHolder->Initialize();
 
     ///- Load the DBC files
-    sLog->outString("Initialize data stores...");
     LoadDBCStores(m_dataPath);
     DetectDBCLang();
-    sLog->outString("Loading Locales...");
+    
+    // Global Storage, should be loaded asap
+    sLog->outString("Loading Global Player Data...");
+    sLogon->LoadGlobalPlayerDataStore();
+    
     sLocalesMgr->LoadLocales();
-
-    sLog->outString("Loading client addons...");
     sAddonMgr->LoadFromDB();
-
-    sLog->outString("Loading Cache...");
     sGameObjects->WarmingCache();
     sCreatures->WarmingCache();
     sQuest->WarmingCache();
     sLog->outString();
-
     sItems->WarmingCache();
     sLog->outString();
-
-    sLog->outString("Loading Achievements...");
     sAchievementMgr->LoadAchievementReferenceList();
-    sLog->outString("Loading Achievement Criteria Lists...");
     sAchievementMgr->LoadAchievementCriteriaList();
-    sLog->outString("Loading Achievement Criteria Data...");
     sAchievementMgr->LoadAchievementCriteriaData();
-    sLog->outString("Loading Achievement Rewards...");
     sAchievementMgr->LoadRewards();
-    sLog->outString("Loading Achievement Reward Locales...");
     sAchievementMgr->LoadRewardLocales();
-    sLog->outString("Loading Completed Achievements...");
-    sAchievementMgr->LoadCompletedAchievements(); 
-    sLog->outString("Loading LogonServer States...");              // must be loaded before battleground, outdoor PvP and conditions
+    sAchievementMgr->LoadCompletedAchievements();
     LoadLogonStates();
-    sLog->outString("Loading Battleground Templates...");
-    sBattlegroundMgr->Initialize();
-
-    sLog->outString("Loading NodeList...");
     sRoutingHelper->LoadNodeList();
-    sLog->outString("Loading NodeMap...");
     sRoutingHelper->LoadNodeMap();
-    sLog->outString("Loading AntiSpam...");
     InitAntiSpam();
     sClientSessionMgr->Initialize();
-
-    sLog->outString("Loading GM tickets...");
     sTicketMgr->LoadTickets();
     sTicketMgr->Initialize();
-
-    sLog->outString("Loading GM surveys...");
+    sWardenCheckMgr->LoadWardenChecks();
+    sWardenCheckMgr->LoadWardenOverrides();
     sTicketMgr->LoadSurveys();
-
-    sLog->outString("Loading GM Quality Manager...");
-    sGMQualityManager->Load();
-
-    //sLog->outString("Loading Autobroadcasts...");
-    //sAutoBroadcast.load();
-
-    ///- Initialize game time and timers
-    sLog->outString("Initialize game time and timers");
+    sGMQualityManager->Load(); 
+    
+    
     m_gameTime = time(NULL);
     m_startTime=m_gameTime;
 
@@ -418,13 +387,10 @@ void Logon::SetInitialLogonSettings()
     sprintf(isoDate, "%04d-%02d-%02d %02d:%02d:%02d",
         local.tm_year+1900, local.tm_mon+1, local.tm_mday, local.tm_hour, local.tm_min, local.tm_sec);
 
-    //LoginDatabase.PExecute("INSERT INTO uptime (realmid, starttime, uptime, revision) VALUES('%u', " UI64FMTD ", 0, '%s%s%s')", realmID, uint64(m_startTime), _FULLVERSION_A, git::getProduktVersionStr(), _FULLVERSION_B);
-
     m_timers[LUPDATE_UPTIME].SetInterval(m_int_configs[CONFIG_UPTIME_UPDATE]*MINUTE*IN_MILLISECONDS);
     m_timers[LUPDATE_PINGDB].SetInterval(getIntConfig(CONFIG_DB_PING_INTERVAL)*MINUTE*IN_MILLISECONDS);    // Mysql ping time in minutes
     m_timers[LUPDATE_RECONNECT].SetInterval((MINUTE*IN_MILLISECONDS)/2);
     m_timers[LUPDATE_BAN].SetInterval(5*MINUTE*IN_MILLISECONDS); // Update expired bans
-    m_timers[LUPDATE_AUTOBROADCAST].SetInterval(getIntConfig(CONFIG_AUTOBROADCAST_INTERVAL));
 
     //m_timers[LUPDATE_RECONNECT].SetInterval((IN_MILLISECONDS));
 
@@ -433,10 +399,8 @@ void Logon::SetInitialLogonSettings()
 
     uint32 startupDuration = GetMSTimeDiffToNow(startupBegin);
     sLog->outString();
-    sLog->outString("LOGON: Logon initialized in %u minutes %u seconds", (startupDuration / 60000), ((startupDuration % 60000) / 1000) );
-
-    time_t Timestamp; tm *now; Timestamp = time(0); now = localtime(&Timestamp);
-    sLog->outString("LOGON: %u:%u:%u", now->tm_hour, now->tm_min, now->tm_sec);
+    sLog->outString("Proxy Server initialized in %u minutes %u seconds", (startupDuration / 60000), ((startupDuration % 60000) / 1000) );
+    sLog->outString("We are now accepting connections."); 
     sLog->outString();
 }
 
@@ -474,7 +438,7 @@ void Logon::Update(uint32 diff)
         CharacterDatabase.KeepAlive();
         LogonDatabase.KeepAlive();
         LoginDatabase.KeepAlive();
-        WorldDatabase.KeepAlive(); 
+        WorldDatabase.KeepAlive();
     }
 
     /// <li> Update uptime table
@@ -495,7 +459,7 @@ void Logon::Update(uint32 diff)
         stmt->setUInt32(2, realmID);
         stmt->setUInt64(3, uint64(m_startTime));
 
-        LoginDatabase.Execute(stmt);  
+        LoginDatabase.Execute(stmt);
     }
 
     /// Update expired bans
@@ -507,16 +471,6 @@ void Logon::Update(uint32 diff)
         LoginDatabase.Execute(LoginDatabase.GetPreparedStatement(LOGIN_UPD_EXPIRED_ACCOUNT_BANS));
 
         m_timers[LUPDATE_BAN].Reset();
-    }
-
-    if (getBoolConfig(CONFIG_AUTOBROADCAST))
-    {
-        if (m_timers[LUPDATE_AUTOBROADCAST].Passed())
-        {
-            m_timers[LUPDATE_AUTOBROADCAST].Reset();
-            //sAutoBroadcast.send();
-            //RecordTimeDiff("Autobroadcast");
-        }
     }
 
     sObjectMgr->Update();
@@ -589,7 +543,7 @@ void Logon::_UpdateGameTime()
         ///- ... and it is overdue, stop the world (set m_stopEvent)
         if (m_HaltTimer <= elapsed)
         {
-            LoginDatabase.DirectPExecute("UPDATE realmlist SET color = 2 WHERE id = '%d'", 2, 1, realmID);
+            LoginDatabase.DirectPExecute("UPDATE realmlist SET flag = 2 WHERE id = '%d'", 2, 1, realmID);
             m_HaltTimer = 0;
             m_haltEvent = true;
         }
@@ -800,7 +754,97 @@ uint64 Logon::getLogonState(uint32 index) const
 }
  
 void Logon::InitAntiSpam()
-{ 
+{
+    return;
+    ACORE_GUARD(ACE_Thread_Mutex, _Mutex_);
+    _antiSpam.clear();
+    QueryResult result = LoginDatabase.Query("SELECT input FROM antispam");
+
+    int count = 0;
+    if (!result)
+    {
+        sLog->outString();
+        sLog->outString(">> Loaded %u descriptions ", count);
+        return;
+    }
+
+    do
+    {
+        Field *fields = result->Fetch();
+
+        InsertSpamMsg(fields[0].GetString());
+        ++count;
+
+    }
+    while (result->NextRow());
+
+    _antiSpamReplace[0xc2a1] = 'i';
+    _antiSpamReplace[0xc2a2] = 'c';
+    _antiSpamReplace[0xc2a5] = 'y';
+    _antiSpamReplace[0xc2a6] = 'i';
+    _antiSpamReplace[0xc380] = 'a';
+    _antiSpamReplace[0xc381] = 'a';
+    _antiSpamReplace[0xc382] = 'a';
+    _antiSpamReplace[0xc383] = 'a';
+    _antiSpamReplace[0xc384] = 'a';
+    _antiSpamReplace[0xc385] = 'a';
+    _antiSpamReplace[0xc386] = 'a';
+    _antiSpamReplace[0xc387] = 'c';
+    _antiSpamReplace[0xc388] = 'e';
+    _antiSpamReplace[0xc389] = 'e';
+    _antiSpamReplace[0xc38a] = 'e';
+    _antiSpamReplace[0xc38b] = 'e';
+    _antiSpamReplace[0xc38c] = 'i';
+    _antiSpamReplace[0xc38d] = 'i';
+    _antiSpamReplace[0xc38e] = 'i';
+    _antiSpamReplace[0xc38f] = 'i';
+    _antiSpamReplace[0xc390] = 'd';
+    _antiSpamReplace[0xc391] = 'n';
+    _antiSpamReplace[0xc392] = 'o';
+    _antiSpamReplace[0xc393] = 'o';
+    _antiSpamReplace[0xc394] = 'o';
+    _antiSpamReplace[0xc395] = 'o';
+    _antiSpamReplace[0xc396] = 'o';
+    _antiSpamReplace[0xc397] = 'x';
+    _antiSpamReplace[0xc398] = 'o';
+    _antiSpamReplace[0xc399] = 'u';
+    _antiSpamReplace[0xc39a] = 'u';
+    _antiSpamReplace[0xc39b] = 'u';
+    _antiSpamReplace[0xc39c] = 'u';
+    _antiSpamReplace[0xc39d] = 'y';
+    _antiSpamReplace[0xc39e] = 'p';
+    _antiSpamReplace[0xc39f] = 's';
+    _antiSpamReplace[0xc3a0] = 'a';
+    _antiSpamReplace[0xc3a1] = 'a';
+    _antiSpamReplace[0xc3a2] = 'a';
+    _antiSpamReplace[0xc3a3] = 'a';
+    _antiSpamReplace[0xc3a4] = 'a';
+    _antiSpamReplace[0xc3a5] = 'a';
+    _antiSpamReplace[0xc3a6] = 'a';
+    _antiSpamReplace[0xc3a7] = 'c';
+    _antiSpamReplace[0xc3a8] = 'e';
+    _antiSpamReplace[0xc3a9] = 'e';
+    _antiSpamReplace[0xc3aa] = 'e';
+    _antiSpamReplace[0xc3ab] = 'e';
+    _antiSpamReplace[0xc3ac] = 'i';
+    _antiSpamReplace[0xc3ad] = 'i';
+    _antiSpamReplace[0xc3ae] = 'i';
+    _antiSpamReplace[0xc3af] = 'i';
+    _antiSpamReplace[0xc3b0] = 'd';
+    _antiSpamReplace[0xc3b1] = 'n';
+    _antiSpamReplace[0xc3b2] = 'o';
+    _antiSpamReplace[0xc3b3] = 'o';
+    _antiSpamReplace[0xc3b4] = 'o';
+    _antiSpamReplace[0xc3b5] = 'o';
+    _antiSpamReplace[0xc3b6] = 'o';
+    _antiSpamReplace[0xc3b8] = 'o';
+    _antiSpamReplace[0xc3b9] = 'u';
+    _antiSpamReplace[0xc3ba] = 'u';
+    _antiSpamReplace[0xc3bb] = 'u';
+    _antiSpamReplace[0xc3bc] = 'u';
+    _antiSpamReplace[0xc3bd] = 'y';
+    _antiSpamReplace[0xc3be] = 'p';
+    _antiSpamReplace[0xc3bf] = 'y';
 }
 
 char Logon::GetReplaceChar(uint16 c) const
@@ -881,4 +925,216 @@ void Logon::Whisper(const std::string& text, uint32 language, Player* player)
     data << text;
     data << uint8(0);
     player->GetSession()->SendPacket(&data);
+}
+
+
+void Logon::LoadGlobalPlayerDataStore()
+{
+    uint32 oldMSTime = getMSTime();
+
+    _globalPlayerDataStore.clear();
+    QueryResult result = CharacterDatabase.Query("SELECT guid, account, name, gender, race, class, level FROM characters WHERE deleteDate IS NULL");
+    if (!result)
+    {
+        sLog->outString();
+        sLog->outErrorDb(">>  Loaded 0 Players data!");
+        return;
+    }
+
+    uint32 count = 0;
+
+    // query to load number of mails by receiver
+    std::map<uint32, uint16> _mailCountMap;
+    QueryResult mailCountResult = CharacterDatabase.Query("SELECT receiver, COUNT(receiver) FROM mail GROUP BY receiver");
+    if (mailCountResult)
+    {
+        do
+        {
+            Field* fields = mailCountResult->Fetch();
+            _mailCountMap[fields[0].GetUInt32()] = uint16(fields[1].GetUInt64());
+        }
+        while (mailCountResult->NextRow());
+    }
+
+    do
+    {
+        Field* fields = result->Fetch();
+        uint32 guidLow = fields[0].GetUInt32();
+
+        // count mails
+        uint16 mailCount = 0;
+        std::map<uint32, uint16>::const_iterator itr = _mailCountMap.find(guidLow);
+        if (itr != _mailCountMap.end())
+            mailCount = itr->second;
+
+        AddGlobalPlayerData(
+            guidLow,               /*guid*/
+            fields[1].GetUInt32(), /*accountId*/
+            fields[2].GetString(), /*name*/
+            fields[3].GetUInt8(),  /*gender*/
+            fields[4].GetUInt8(),  /*race*/
+            fields[5].GetUInt8(),  /*class*/
+            fields[6].GetUInt8(),  /*level*/
+            mailCount,             /*mail count*/
+            0                      /*guild id*/);
+
+        ++count;
+    }
+    while (result->NextRow());
+
+    sLog->outString(">> Loaded %d Players data in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
+    sLog->outString();
+}
+
+void Logon::AddGlobalPlayerData(uint32 guid, uint32 accountId, std::string const& name, uint8 gender, uint8 race, uint8 playerClass, uint8 level, uint16 mailCount, uint32 guildId)
+{
+    GlobalPlayerData data;
+
+    data.guidLow = guid;
+    data.accountId = accountId;
+    data.name = name;
+    data.level = level;
+    data.race = race;
+    data.playerClass = playerClass;
+    data.gender = gender;
+    data.mailCount = mailCount;
+    data.guildId = guildId;
+    data.groupId = 0;
+    data.arenaTeamId[0] = 0;
+    data.arenaTeamId[1] = 0;
+    data.arenaTeamId[2] = 0;
+
+    _globalPlayerDataStore[guid] = data;
+    _globalPlayerNameStore[name] = guid;
+}
+
+void Logon::UpdateGlobalPlayerData(uint32 guid, uint8 mask, std::string const& name, uint8 level, uint8 gender, uint8 race, uint8 playerClass)
+{
+    GlobalPlayerDataMap::iterator itr = _globalPlayerDataStore.find(guid);
+    if (itr == _globalPlayerDataStore.end())
+        return;
+
+    if (mask & PLAYER_UPDATE_DATA_LEVEL)
+        itr->second.level = level;
+    if (mask & PLAYER_UPDATE_DATA_RACE)
+        itr->second.race = race;
+    if (mask & PLAYER_UPDATE_DATA_CLASS)
+        itr->second.playerClass = playerClass;
+    if (mask & PLAYER_UPDATE_DATA_GENDER)
+        itr->second.gender = gender;
+    if (mask & PLAYER_UPDATE_DATA_NAME)
+        itr->second.name = name;
+
+    WorldPacket data(SMSG_INVALIDATE_PLAYER, 8);
+    data << MAKE_NEW_GUID(guid, 0, HIGHGUID_PLAYER);
+    SendGlobalMessage(&data);
+}
+
+void Logon::UpdateGlobalPlayerMails(uint32 guid, int16 count, bool add)
+{
+    GlobalPlayerDataMap::iterator itr = _globalPlayerDataStore.find(guid);
+    if (itr == _globalPlayerDataStore.end())
+        return;
+
+    if (!add)
+    {
+        itr->second.mailCount = count;
+        return;
+    }
+
+    int16 icount = (int16)itr->second.mailCount;
+    if (count < 0 && abs(count) > icount)
+        count = -icount;
+    itr->second.mailCount = uint16(icount + count); // addition or subtraction
+}
+
+void Logon::UpdateGlobalPlayerGuild(uint32 guid, uint32 guildId)
+{
+    GlobalPlayerDataMap::iterator itr = _globalPlayerDataStore.find(guid);
+    if (itr == _globalPlayerDataStore.end())
+        return;
+
+    itr->second.guildId = guildId;
+}
+void Logon::UpdateGlobalPlayerGroup(uint32 guid, uint32 groupId)
+{
+    GlobalPlayerDataMap::iterator itr = _globalPlayerDataStore.find(guid);
+    if (itr == _globalPlayerDataStore.end())
+        return;
+
+    itr->second.groupId = groupId;
+}
+
+void Logon::UpdateGlobalPlayerArenaTeam(uint32 guid, uint8 slot, uint32 arenaTeamId)
+{
+    GlobalPlayerDataMap::iterator itr = _globalPlayerDataStore.find(guid);
+    if (itr == _globalPlayerDataStore.end())
+        return;
+
+    itr->second.arenaTeamId[slot] = arenaTeamId;
+}
+
+void Logon::UpdateGlobalNameData(uint32 guidLow, std::string const& oldName, std::string const& newName)
+{
+    _globalPlayerNameStore.erase(oldName);
+    _globalPlayerNameStore[newName] = guidLow;
+}
+
+void Logon::DeleteGlobalPlayerData(uint32 guid, std::string const& name)
+{
+    if (guid)
+        _globalPlayerDataStore.erase(guid);
+    if (!name.empty())
+        _globalPlayerNameStore.erase(name);
+}
+
+GlobalPlayerData const* Logon::GetGlobalPlayerData(uint32 guid) const
+{
+    GlobalPlayerDataMap::const_iterator itr = _globalPlayerDataStore.find(guid);
+    if (itr != _globalPlayerDataStore.end())
+        return &itr->second;
+    return NULL;
+}
+
+uint32 Logon::GetGlobalPlayerGUID(std::string const& name) const
+{
+    GlobalPlayerNameMap::const_iterator itr = _globalPlayerNameStore.find(name);
+    if (itr != _globalPlayerNameStore.end())
+        return itr->second;
+    return 0;
+}
+
+/// Send a packet to all players (except self if mentioned)
+void Logon::SendGlobalMessage(WorldPacket* packet, ClientSession* self, TeamId teamId)
+{
+    SessionMap::const_iterator itr;
+    for (itr = m_sessions.begin(); itr != m_sessions.end(); ++itr)
+    {
+        if (itr->second &&
+            itr->second->GetPlayer() &&
+            //itr->second->GetPlayer()->IsInWorld() &&
+            itr->second != self &&
+            (teamId == TEAM_NEUTRAL || itr->second->GetPlayer()->GetTeamId() == teamId))
+        {
+            itr->second->SendPacket(packet);
+        }
+    }
+}
+
+/// Send a packet to all GMs (except self if mentioned)
+void Logon::SendGlobalGMMessage(WorldPacket* packet, ClientSession* self, TeamId teamId)
+{
+    SessionMap::iterator itr;
+    for (itr = m_sessions.begin(); itr != m_sessions.end(); ++itr)
+    {
+        if (itr->second &&
+            itr->second->GetPlayer() &&
+            //itr->second->GetPlayer()->IsInWorld() &&
+            itr->second != self &&
+            !AccountMgr::IsPlayerAccount(itr->second->GetSecurity()) &&
+            (teamId == TEAM_NEUTRAL || itr->second->GetPlayer()->GetTeamId() == teamId))
+        {
+            itr->second->SendPacket(packet);
+        }
+    }
 }

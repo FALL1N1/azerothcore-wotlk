@@ -115,8 +115,7 @@ void WorldDatabaseRebase::RebaseCreatureAddons()
         sLog->outString();
         sLog->outString(">> no temp_creature_addon found!");
         return;
-    }
-     
+    }  
 
     do
     {
@@ -157,12 +156,12 @@ void WorldDatabaseRebase::RebaseCreatureFormations()
         sLog->outString();
         sLog->outString(">> no temp_creature_formations found!");
         return;
-    } 
+    }
+     
 
     do
     {
-        Field* fields = result->Fetch();
-         
+        Field* fields = result->Fetch(); 
 
         CreatureMap::const_iterator itr = _CreatureGUIDs.find(fields[0].GetUInt32());
         CreatureMap::const_iterator iter_two = _CreatureGUIDs.find(fields[1].GetUInt32());
@@ -200,8 +199,7 @@ void WorldDatabaseRebase::RebaseLinkedRespawn()
         sLog->outString();
         sLog->outString(">> no temp_linked_respawn found!");
         return;
-    }
-     
+    } 
 
     do
     {

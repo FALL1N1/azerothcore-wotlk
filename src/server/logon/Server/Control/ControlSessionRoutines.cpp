@@ -9,28 +9,28 @@
 //Range,Item,Mail
 void ControlSession::SendInitAuthedNode()
 {
-    sLog->outError("ControlSession::SendInitAuthedNode() for node %u", _nodeId);
+    //sLog->outError("ControlSession::SendInitAuthedNode() for node %u", _nodeId);
 
     WorldPacket packet(LOGON_INIT_NODE);
     packet << sRoutingHelper->GetNodeCount();
-    sLog->outError("ControlSession::SendInitAuthedNode() for node %u sRoutingHelper->GetNodeCount() %u", _nodeId, sRoutingHelper->GetNodeCount());
+    //sLog->outError("ControlSession::SendInitAuthedNode() for node %u sRoutingHelper->GetNodeCount() %u", _nodeId, sRoutingHelper->GetNodeCount());
 
     //ItemGUID
     if (uint32 LastItemGUID = sRoutingHelper->GetNodeConnectionData(_nodeId).LastItemGUID)
     {
         packet << LastItemGUID;
-        sLog->outError("ControlSession::SendInitAuthedNode() for node %u LastItemGUID %u", _nodeId, LastItemGUID);
+        //sLog->outError("ControlSession::SendInitAuthedNode() for node %u LastItemGUID %u", _nodeId, LastItemGUID);
     }
     else
     {
         LastItemGUID = sObjectMgr->m_hiItemGuid;
-        sLog->outError("ControlSession::SendInitAuthedNode() for node %u sObjectMgr->m_hiItemGuid %u", _nodeId, sObjectMgr->m_hiItemGuid);
+        //sLog->outError("ControlSession::SendInitAuthedNode() for node %u sObjectMgr->m_hiItemGuid %u", _nodeId, sObjectMgr->m_hiItemGuid);
         LastItemGUID += _nodeId - 1; // That's why we do not allow nodeId = 0 AND it also is the id for the logon itself
-        sLog->outError("ControlSession::SendInitAuthedNode() for node %u sObjectMgr->m_hiItemGuid %u", _nodeId, LastItemGUID);
+        //sLog->outError("ControlSession::SendInitAuthedNode() for node %u sObjectMgr->m_hiItemGuid %u", _nodeId, LastItemGUID);
 
         sRoutingHelper->SetLastGUID(_nodeId, ENTITYID_ITEM, LastItemGUID);
         packet << LastItemGUID;
-        sLog->outError("ControlSession::SendInitAuthedNode() for node %u LastItemGUID %u", _nodeId, LastItemGUID);
+        //sLog->outError("ControlSession::SendInitAuthedNode() for node %u LastItemGUID %u", _nodeId, LastItemGUID);
     }
 
     //MailGUID

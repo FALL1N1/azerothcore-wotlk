@@ -140,7 +140,7 @@ int NodeSocket::_processIncoming(WorldPacket *newPacket)
     {
         if (sLog->IsOutDebug())
         {
-            sLog->outDebug(LOG_FILTER_NETWORKIO, "Dumping error causing packet:");
+            sLog->outString("Dumping error causing packet:");
             newPacket->hexlike();
         }
 

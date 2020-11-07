@@ -17,8 +17,6 @@
 #include <ace/os_include/sys/os_types.h>
 #include <ace/os_include/sys/os_socket.h>
 
-#define LOGON_SESSION_SLEEP_CONST 5000 //micro-seconds
-
 SessionUpdater::SessionUpdater() :
     m_Counter(0),
     m_ThreadId(-1)
@@ -77,17 +75,17 @@ void SessionUpdater::SetSleep()
     m_Sessions.clear();
 }
 
+#define LOGON_SESSION_SLEEP_CONST 5000 //micro-seconds
+
 int SessionUpdater::svc()
 {
     uint32 realCurrTime = 0;
     uint32 realPrevTime = getMSTime();
 
-    uint32 prevSleepTime = 0;
-
-    sLog->outStaticDebug("ClientUpdate Thread Starting");
+    uint32 prevSleepTime = 0; 
 
     while (!_stop)
-    {
+    { 
         realCurrTime = getMSTime();
         uint32 diff = getMSTimeDiff(realPrevTime, realCurrTime);
 
