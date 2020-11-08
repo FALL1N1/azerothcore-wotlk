@@ -505,15 +505,7 @@ void ClientSession::UpdateMultiClientIO(uint32 diff)
 bool ClientSession::UpdateMulti(uint32 diff)
 {
     if (HasFlag(FLAG_ACCOUNT_KICKED))
-        return false;
-
-    if (m_loginDelay)
-    {
-        if (m_loginDelay < diff)
-            m_loginDelay = 0;
-        else
-            m_loginDelay -= diff;
-    }
+        return false; 
 
     if (_ClientSocket && _ClientSocket->GetLastActionTime() > (time(NULL) + sLogon->getIntConfig(CONFIG_SOCKET_TIMEOUTTIME)))
         KickPlayer();
@@ -528,16 +520,19 @@ bool ClientSession::UpdateMulti(uint32 diff)
 
     if (HasFlag(FLAG_ACCOUNT_RECONNECT))
     {
-        if (_reconnect_timer > diff)
-            _reconnect_timer -= diff;
-        else
-        {
-            if (_nodeId == 0)
+       if (_reconnect_timer > diff)
+           _reconnect_timer -= diff;
+       else
+       {
+            if (_nodeId == 0) {
                 _nodeId = sRoutingHelper->ConnectToMaster();
+                sLog->outString("Connection to master node (%u) failed, trying to reconnect...", _nodeId);
+            } 
             else if (sRoutingHelper->CanEnterNodeID(_nodeId))
             {
-                if (NodeSocket *socket = sNodeSocketConnector->OpenConnection(_nodeId, "127.0.0.1"))
+                if (NodeSocket* socket = sNodeSocketConnector->OpenNodeConnection(_nodeId))
                 {
+                    sLog->outString("Node(%u) connected successfully.", _nodeId);
                     socket->add_reference();
                     _NodeSocket = socket;
 
@@ -598,9 +593,7 @@ void ClientSession::SendPacket(WorldPacket const* packet)
 {
     if (!_ClientSocket)
         return;
-
-#ifdef TRINITY_DEBUG
-
+     
     // Code for network use statistic
     static uint64 sendPacketCount = 0;
     static uint64 sendPacketBytes = 0;
@@ -625,15 +618,14 @@ void ClientSession::SendPacket(WorldPacket const* packet)
     {
         uint64 minTime = uint64(cur_time - lastTime);
         uint64 fullTime = uint64(lastTime - firstTime);
-        sLog->outDetail("Send all time packets count: " UI64FMTD " bytes: " UI64FMTD " avr.count/sec: %f avr.bytes/sec: %f time: %u",sendPacketCount,sendPacketBytes,float(sendPacketCount)/fullTime,float(sendPacketBytes)/fullTime,uint32(fullTime));
-        sLog->outDetail("Send last min packets count: " UI64FMTD " bytes: " UI64FMTD " avr.count/sec: %f avr.bytes/sec: %f",sendLastPacketCount,sendLastPacketBytes,float(sendLastPacketCount)/minTime,float(sendLastPacketBytes)/minTime);
+        sLog->outString("Send all time packets count: " UI64FMTD " bytes: " UI64FMTD " avr.count/sec: %f avr.bytes/sec: %f time: %u",sendPacketCount,sendPacketBytes,float(sendPacketCount)/fullTime,float(sendPacketBytes)/fullTime,uint32(fullTime));
+        sLog->outString("Send last min packets count: " UI64FMTD " bytes: " UI64FMTD " avr.count/sec: %f avr.bytes/sec: %f",sendLastPacketCount,sendLastPacketBytes,float(sendLastPacketCount)/minTime,float(sendLastPacketBytes)/minTime);
 
         lastTime = cur_time;
         sendLastPacketCount = 1;
         sendLastPacketBytes = packet->wpos();               // wpos is real written size
     }
-
-#endif                                                  // !TRINITY_DEBUG
+      
 
     if (_ClientSocket->SendPacket(*packet) == -1)
         CloseSocket();
@@ -750,14 +742,10 @@ void ClientSession::ProcessQueryCallbacks()
 
         //! HandleCharEnumOpcode
         if (_charEnumCallback.ready())
-        {
-            sLog->outString("1");
-            _charEnumCallback.get(result);
-            sLog->outString("2");
-            HandleCharEnum(result);
-            sLog->outString("3");
-            _charEnumCallback.cancel();
-            sLog->outString("4"); 
+        { 
+            _charEnumCallback.get(result); 
+            HandleCharEnum(result); 
+            _charEnumCallback.cancel(); 
         }
         //! HandlePlayerLoginOpcode
         if (_charLoginCallback.ready())

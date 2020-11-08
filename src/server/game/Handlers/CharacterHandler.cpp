@@ -925,6 +925,10 @@ void WorldSession::HandlePlayerLoginFromDB(LoginQueryHolder* holder)
         }
     }
 
+    if (WorldSession *session = pCurrChar->GetSession())
+        if (session->IsForceTele())
+            pCurrChar->TeleportTo(pCurrChar->m_homebindMapId, pCurrChar->m_homebindX, pCurrChar->m_homebindY, pCurrChar->m_homebindZ, pCurrChar->GetOrientation());
+            //pCurrChar->TeleportTo(*pCurrChar, 0, true);
     // Xinef: moved this from below
     sObjectAccessor->AddObject(pCurrChar);
 

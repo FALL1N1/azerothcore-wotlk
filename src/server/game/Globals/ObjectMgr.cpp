@@ -37,6 +37,11 @@
 #include "WaypointManager.h"
 #include "World.h"
 
+#include "ClusterDefines.h"
+#include "WorldPacket.h"
+#include "PoolSessionMgr.h"
+#include "PoolSession.h"
+
 ScriptMapMap sSpellScripts;
 ScriptMapMap sEventScripts;
 ScriptMapMap sWaypointScripts;

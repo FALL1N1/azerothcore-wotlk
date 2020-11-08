@@ -14,7 +14,18 @@ PoolSession* PoolSessionMgr::GetSession(uint32 id)
 }
 
 void PoolSessionMgr::SendGUIDSync(uint32 type, uint32 guid)
-{ 
+{
+    PoolSessionMap::const_iterator itr;
+    itr = m_sessions.begin();
+    if (itr == m_sessions.end())
+        return;
+
+    WorldPacket packet(NODE_SYNC_DATA);
+    packet << uint32 (CL_DEF_GUID_SYNC);
+    packet << uint32 (type);
+    packet << guid;
+    itr->second->SendPacket(&packet);
+
     return;
 }
 
@@ -134,15 +145,7 @@ void PoolSessionMgr::AddSession_(PoolSession* s)
     //so we don't count the user trying to
     //login as a session and queue the socket that we are using
     if (decrease_session)
-        --Sessions;
-
-    if (pLimit > 0 && Sessions >= pLimit && !HasRecentlyDisconnected(s))
-    {
-        AddQueuedPlayer (s);
-        UpdateMaxSessionCounters();
-        sLog->outDetail ("PlayerQueue: Account id %u is in Queue Position (%u).", s->GetServerId(), ++QueueSize);
-        return;
-    }
+        --Sessions; 
 
     //Its okay
     WorldPacket pack(SMSG_AUTH_RESPONSE);
@@ -157,7 +160,7 @@ void PoolSessionMgr::AddSession_(PoolSession* s)
         float popu = (float)GetActiveSessionCount();              // updated number of users on the server
         popu /= pLimit;
         popu *= 2;
-        sLog->outDetail ("Server Population (%f).", popu);
+        sLog->outString("Server Population (%f).", popu);
     }
 }
 
@@ -173,29 +176,7 @@ bool PoolSessionMgr::RemoveSession(uint32 id)
     }
 
     return true;
-}
-
-bool PoolSessionMgr::HasRecentlyDisconnected(PoolSession* session)
-{
-    if (!session)
-        return false;
-
-    if (uint32 tolerance = sWorld->getIntConfig(CONFIG_INTERVAL_DISCONNECT_TOLERANCE))
-    {
-        for (DisconnectMap::iterator i = m_disconnects.begin(); i != m_disconnects.end();)
-        {
-            if (difftime(i->second, time(NULL)) < tolerance)
-            {
-                if (i->first == session->GetServerId())
-                    return true;
-                ++i;
-            }
-            else
-                m_disconnects.erase(i);
-        }
-    }
-    return false;
- }
+} 
 
 int32 PoolSessionMgr::GetQueuePos(PoolSession* sess)
 {
@@ -215,11 +196,11 @@ void PoolSessionMgr::UpdateMaxSessionCounters()
 }
 
 void PoolSessionMgr::Update(uint32 diff)
-{
+{ 
     ///- Add new sessions
     PoolSession* sess;
     while (addSessQueue.next(sess))
-        AddSession_ (sess);
+        AddSession_(sess);
 
     ///- Then send an update signal to remaining ones
     for (PoolSessionMap::iterator itr = m_sessions.begin(), next; itr != m_sessions.end(); itr = next)
@@ -232,8 +213,8 @@ void PoolSessionMgr::Update(uint32 diff)
 
         if (!pSession->Update(diff))    // As interval = 0
         {
-            if (!RemoveQueuedPlayer(itr->second) && itr->second && sWorld->getIntConfig(CONFIG_INTERVAL_DISCONNECT_TOLERANCE))
-                m_disconnects[itr->second->GetServerId()] = time(NULL);
+            //if (!RemoveQueuedPlayer(itr->second) && itr->second)// && sWorld->getIntConfig(CONFIG_INTERVAL_DISCONNECT_TOLERANCE))
+                //m_disconnects[itr->second->GetServerId()] = time(NULL);
             RemoveQueuedPlayer(pSession);
             m_sessions.erase(itr);
             delete pSession;

@@ -94,7 +94,7 @@ int Socket::_setup()
     // Prevent double call to this func.
     if (_outBuffer)
     {
-        sLog->outError("Socket::SetSocketOptions double call");
+        sLog->outString("Socket::SetSocketOptions double call");
         return -1;
     }
 
@@ -103,7 +103,7 @@ int Socket::_setup()
     {
         if (peer().set_option(SOL_SOCKET, SO_SNDBUF, (void*)&SockOutKBuff, sizeof(int)) == -1 && errno != ENOTSUP)
         {
-            sLog->outError("Socket::SetSocketOptions set_option SO_SNDBUF errno = %s", ACE_OS::strerror(errno));
+            sLog->outString("Socket::SetSocketOptions set_option SO_SNDBUF errno = %s", ACE_OS::strerror(errno));
             return -1;
         }
     }
@@ -114,7 +114,7 @@ int Socket::_setup()
 
         if (peer().set_option(ACE_IPPROTO_TCP, TCP_NODELAY, (void*)&ndoption, sizeof(int)) == -1)
         {
-            sLog->outError("Socket::SetSocketOptions: peer().set_option TCP_NODELAY errno = %s", ACE_OS::strerror(errno));
+            sLog->outString("Socket::SetSocketOptions: peer().set_option TCP_NODELAY errno = %s", ACE_OS::strerror(errno));
             return -1;
         }
     }
@@ -129,14 +129,15 @@ int Socket::_setup()
 
     if (peer().get_remote_addr(remote_addr) == -1)
     {
-        sLog->outError("Socket::open: peer().get_remote_addr errno = %s", ACE_OS::strerror(errno));
+        sLog->outString("Socket::open: peer().get_remote_addr errno = %s", ACE_OS::strerror(errno));
         return -1;
     }
 
     _address = remote_addr.get_host_addr();
+	sLog->outString("_address: %s", _address);
 }
 
-int Socket::open (void *a)
+int Socket::open(void *a)
 {
     ACE_UNUSED_ARG (a);
 
@@ -151,7 +152,8 @@ int Socket::open (void *a)
     }
 
     remove_reference();
-
+	
+	sLog->outString("Socket::open");
     return 0;
 }
 

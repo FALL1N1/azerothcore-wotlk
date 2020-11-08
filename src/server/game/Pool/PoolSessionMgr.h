@@ -27,8 +27,7 @@ class PoolSessionMgr
         void Update(uint32 diff);
 
         void AddSession(PoolSession *s);
-        bool RemoveSession(uint32 id);
-        bool HasRecentlyDisconnected(PoolSession* session);
+        bool RemoveSession(uint32 id); 
 
         void AddQueuedPlayer(PoolSession*);
         bool RemoveQueuedPlayer(PoolSession* session);
@@ -60,9 +59,7 @@ class PoolSessionMgr
 
         Queue m_QueuedPlayer;
         ACE_Based::LockedQueue<PoolSession*, ACE_Thread_Mutex> addSessQueue;
-        PoolSessionMap m_sessions;
-        typedef std::unordered_map<uint32, time_t> DisconnectMap;
-        DisconnectMap m_disconnects;
+        PoolSessionMap m_sessions; 
 
         uint32 m_maxActiveSessionCount;
         uint32 m_maxQueuedSessionCount;

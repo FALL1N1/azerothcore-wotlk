@@ -75,12 +75,15 @@
 #include "ServerMotd.h"
 #include "GameGraveyard.h"
 #include <VMapManager2.h>
+#include "PoolSessionMgr.h"
+#include "PoolSession.h" 
+#include "ClusterDefines.h" 
 
 #ifdef ELUNA
 #include "LuaEngine.h"
 #endif
 
-std::atomic_long World::m_stopEvent = false;
+std::atomic_long World::m_stopEvent = false; 
 uint8 World::m_ExitCode = SHUTDOWN_EXIT_CODE;
 uint32 World::m_worldLoopCounter = 0;
 uint32 World::m_gameMSTime = 0;
@@ -443,6 +446,10 @@ void World::LoadConfigSettings(bool reload)
 
     Motd::SetMotd(sConfigMgr->GetStringDefault("Motd", "Welcome to an AzerothCore server"));
 
+    ///- Get the information if this core is a node or standalone
+    m_int_configs[CONFIG_CORE_TYPE] = sConfigMgr->GetIntDefault("CoreType", 0);
+    
+    
     ///- Read ticket system setting from the config file
     m_bool_configs[CONFIG_ALLOW_TICKETS] = sConfigMgr->GetBoolDefault("AllowTickets", true);
     m_bool_configs[CONFIG_DELETE_CHARACTER_TICKET_TRACE] = sConfigMgr->GetBoolDefault("DeletedCharacterTicketTrace", false);
@@ -1847,10 +1854,13 @@ void World::SetInitialWorldSettings()
     AddonMgr::LoadFromDB();
 
     // pussywizard:
-    sLog->outString("Deleting invalid mail items...\n");
-    CharacterDatabase.Query("DELETE mi FROM mail_items mi LEFT JOIN item_instance ii ON mi.item_guid = ii.guid WHERE ii.guid IS NULL");
-    CharacterDatabase.Query("DELETE mi FROM mail_items mi LEFT JOIN mail m ON mi.mail_id = m.id WHERE m.id IS NULL");
-    CharacterDatabase.Query("UPDATE mail m LEFT JOIN mail_items mi ON m.id = mi.mail_id SET m.has_items=0 WHERE m.has_items<>0 AND mi.mail_id IS NULL");
+    if (sWorld->getIntConfig(CONFIG_CORE_TYPE) == NODE_TYPE_MASTER)
+    {
+        sLog->outString("Deleting invalid mail items...\n");
+        CharacterDatabase.Query("DELETE mi FROM mail_items mi LEFT JOIN item_instance ii ON mi.item_guid = ii.guid WHERE ii.guid IS NULL");
+        CharacterDatabase.Query("DELETE mi FROM mail_items mi LEFT JOIN mail m ON mi.mail_id = m.id WHERE m.id IS NULL");
+        CharacterDatabase.Query("UPDATE mail m LEFT JOIN mail_items mi ON m.id = mi.mail_id SET m.has_items=0 WHERE m.has_items<>0 AND mi.mail_id IS NULL");
+    }
 
     ///- Handle outdated emails (delete/return)
     sLog->outString("Returning old mails...");
@@ -2215,6 +2225,8 @@ void World::Update(uint32 diff)
         m_timers[WUPDATE_WEATHERS].Reset();
         WeatherMgr::Update(uint32(m_timers[WUPDATE_WEATHERS].GetInterval()));
     }
+	
+	sPoolSessionMgr->Update(diff);
 
     /// <li> Clean logs table
     if (sWorld->getIntConfig(CONFIG_LOGDB_CLEARTIME) > 0) // if not enabled, ignore the timer

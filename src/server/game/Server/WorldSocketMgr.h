@@ -1,7 +1,19 @@
 /*
- * Copyright (C) 2016+     AzerothCore <www.azerothcore.org>, released under GNU GPL v2 license: https://github.com/azerothcore/azerothcore-wotlk/blob/master/LICENSE-GPL2
- * Copyright (C) 2008-2016 TrinityCore <http://www.trinitycore.org/>
- * Copyright (C) 2005-2009 MaNGOS <http://getmangos.com/>
+
+
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation; either version 2 of the License, or (at your
+ * option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 /** \addtogroup u2w User to World Communication
@@ -13,8 +25,8 @@
 #ifndef __WORLDSOCKETMGR_H
 #define __WORLDSOCKETMGR_H
 
-#include "Common.h"
 #include <ace/Basic_Types.h>
+#include <ace/Singleton.h>
 #include <ace/Thread_Mutex.h>
 
 class WorldSocket;
@@ -26,11 +38,10 @@ class WorldSocketMgr
 {
 public:
     friend class WorldSocket;
-
-    static WorldSocketMgr* instance();
+    friend class ACE_Singleton<WorldSocketMgr, ACE_Thread_Mutex>;
 
     /// Start network, listen at address:port .
-    int StartNetwork(uint16 port, const char* address);
+    int StartNetwork(ACE_UINT16 port, const char* address);
 
     /// Stops all network threads, It will wait for all running threads .
     void StopNetwork();
@@ -41,7 +52,7 @@ public:
 private:
     int OnSocketOpen(WorldSocket* sock);
 
-    int StartReactiveIO(uint16 port, const char* address);
+    int StartReactiveIO(ACE_UINT16 port, const char* address);
 
 private:
     WorldSocketMgr();
@@ -57,7 +68,7 @@ private:
     class WorldSocketAcceptor* m_Acceptor;
 };
 
-#define sWorldSocketMgr WorldSocketMgr::instance()
+#define sWorldSocketMgr ACE_Singleton<WorldSocketMgr, ACE_Thread_Mutex>::instance()
 
 #endif
 /// @}

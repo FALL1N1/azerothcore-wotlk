@@ -50,7 +50,7 @@ int32 RoutingHelper::GetNodeForMap(uint32 Map_ID)
 {
     NodeMapList::const_iterator iter = m_maplist.find(Map_ID);
     if (iter == m_maplist.end())
-        return 0;
+        return -1;
     else
         return iter->second.NodeID;
 }

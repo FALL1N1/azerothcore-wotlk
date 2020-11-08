@@ -69,7 +69,16 @@ bool PoolSession::UpdateServerIO(uint32 /*diff*/)
         else
         {
             try
-            { 
+            {
+                switch (packet->GetOpcode())
+                {
+                    case LOGON_INIT_NODE:
+                        Handle_LOGON_INIT_NODE(*packet);
+                        break;
+                    case LOGON_SYNC_DATA:
+                        Handle_LOGON_SYNC_DATA(*packet);
+                        break;
+                }
             }
             catch (ByteBufferException &)
             {
@@ -94,9 +103,7 @@ void PoolSession::SendPacket(WorldPacket const* packet)
 {
     if (!m_PoolSocket)
         return;
-
-#ifdef TRINITY_DEBUG
-
+    /*
     // Code for network use statistic
     static uint64 sendPacketCount = 0;
     static uint64 sendPacketBytes = 0;
@@ -121,22 +128,24 @@ void PoolSession::SendPacket(WorldPacket const* packet)
     {
         uint64 minTime = uint64(cur_time - lastTime);
         uint64 fullTime = uint64(lastTime - firstTime);
-        sLog->outDetail("Send all time packets count: " UI64FMTD " bytes: " UI64FMTD " avr.count/sec: %f avr.bytes/sec: %f time: %u",sendPacketCount,sendPacketBytes,float(sendPacketCount)/fullTime,float(sendPacketBytes)/fullTime,uint32(fullTime));
-        sLog->outDetail("Send last min packets count: " UI64FMTD " bytes: " UI64FMTD " avr.count/sec: %f avr.bytes/sec: %f",sendLastPacketCount,sendLastPacketBytes,float(sendLastPacketCount)/minTime,float(sendLastPacketBytes)/minTime);
+        sLog->outString("Send all time packets count: " UI64FMTD " bytes: " UI64FMTD " avr.count/sec: %f avr.bytes/sec: %f time: %u",sendPacketCount,sendPacketBytes,float(sendPacketCount)/fullTime,float(sendPacketBytes)/fullTime,uint32(fullTime));
+        sLog->outString("Send last min packets count: " UI64FMTD " bytes: " UI64FMTD " avr.count/sec: %f avr.bytes/sec: %f",sendLastPacketCount,sendLastPacketBytes,float(sendLastPacketCount)/minTime,float(sendLastPacketBytes)/minTime);
 
         lastTime = cur_time;
         sendLastPacketCount = 1;
         sendLastPacketBytes = packet->wpos();               // wpos is real written size
-    }
-
-#endif                                                  // !TRINITY_DEBUG
-
+    }                                                   // !TRINITY_DEBUG
+    */
     if (m_PoolSocket->SendPacket(*packet) == -1)
         m_PoolSocket->CloseSocket();
 }
 
 void PoolSession::SendInitACK(uint8 ack)
-{ 
+{
+    //Send ACK
+    WorldPacket packet(NODE_INIT_ACK);
+    packet << uint8(ack);
+    SendPacket(&packet);
 }
 
 //Handle
@@ -157,14 +166,18 @@ void PoolSession::Handle_LOGON_INIT_NODE(WorldPacket &recvPacket)
     uint32 MailGuid;
     uint32 GroupGuid;
     uint32 CorpseGuid;
-     
+    uint64 _hiRange;
+
+    recvPacket >> _hiRange; // sObjectMgr->_hiRange
     recvPacket >> ItemGuid;
     if (ItemGuid >= 0xFFFFFFFE)
     {
         sLog->outError("Low Item GUID %u is higher then %u", ItemGuid, 0xFFFFFFFE);
         SendInitACK(NODE_INIT_ACK_ITEM_GUID_FAIL);
         return;
-    }  
+    }
+    //sObjectMgr->_hiItemGuid = ItemGuid;
+    //sLog->outError("PoolSession::Handle_LOGON_INIT_NODE RANGE %u ItemGuid %u", sObjectMgr->_hiRange, sObjectMgr->_hiItemGuid);
 
     recvPacket >> MailGuid;
     if (MailGuid >= 0xFFFFFFFE)
@@ -172,9 +185,11 @@ void PoolSession::Handle_LOGON_INIT_NODE(WorldPacket &recvPacket)
         sLog->outError("Low Mail GUID %u is higher then %u", ItemGuid, 0xFFFFFFFE);
         SendInitACK(NODE_INIT_ACK_MAIL_GUID_FAIL);
         return;
-    } 
+    }
+    //sObjectMgr->_mailId = MailGuid;
 
-    recvPacket >> GroupGuid; 
+    recvPacket >> GroupGuid;
+    //sGroupMgr->SetNextGroupDbStoreId(GroupGuid);
     //sGroupMgr->NextGroupId = GroupGuid;
 
     recvPacket >> CorpseGuid;
@@ -183,11 +198,12 @@ void PoolSession::Handle_LOGON_INIT_NODE(WorldPacket &recvPacket)
         sLog->outError("Low Corpse GUID %u is higher then %u", CorpseGuid, 0xFFFFFFFE);
         SendInitACK(NODE_INIT_ACK_CORPSE_GUID_FAIL);
         return;
-    } 
+    }
+    //sObjectMgr->_hiCorpseGuid = CorpseGuid;
 
     for (int i = 0; i < 38; i++)
         recvPacket >> rate_float_value[i];
-
+    /*
     sWorld->setRate(RATE_HEALTH, rate_float_value[0]);
     sWorld->setRate(RATE_POWER_MANA, rate_float_value[1]);
     sWorld->setRate(RATE_POWER_RAGE_INCOME, rate_float_value[2]);
@@ -218,16 +234,18 @@ void PoolSession::Handle_LOGON_INIT_NODE(WorldPacket &recvPacket)
     sWorld->setRate(RATE_AUCTION_TIME, rate_float_value[27]);
     sWorld->setRate(RATE_AUCTION_DEPOSIT, rate_float_value[28]);
     sWorld->setRate(RATE_AUCTION_CUT, rate_float_value[29]);
-    sWorld->setRate(RATE_HONOR, rate_float_value[30]); 
+    sWorld->setRate(RATE_HONOR, rate_float_value[30]);
+//    sWorld->setRate(RATE_MINING_AMOUNT, rate_float_value[31]);
+//    sWorld->setRate(RATE_MINING_NEXT, rate_float_value[32]);
     sWorld->setRate(RATE_TALENT, rate_float_value[33]);
     sWorld->setRate(RATE_REPUTATION_GAIN, rate_float_value[34]);
     sWorld->setRate(RATE_REPUTATION_LOWLEVEL_KILL, rate_float_value[35]);
     sWorld->setRate(RATE_REPUTATION_LOWLEVEL_QUEST, rate_float_value[36]);
     sWorld->setRate(RATE_REPUTATION_RECRUIT_A_FRIEND_BONUS, rate_float_value[37]);
-
+    */
     for (int i = 0; i < 10; i++)
         recvPacket >> rate_int_value[i];
-
+    /*
     sWorld->setIntConfig(CONFIG_SKILL_GAIN_CRAFTING, rate_int_value[0]);
     sWorld->setIntConfig(CONFIG_SKILL_GAIN_DEFENSE, rate_int_value[1]);
     sWorld->setIntConfig(CONFIG_SKILL_GAIN_GATHERING, rate_int_value[2]);
@@ -238,10 +256,49 @@ void PoolSession::Handle_LOGON_INIT_NODE(WorldPacket &recvPacket)
     sWorld->setIntConfig(CONFIG_SKILL_CHANCE_GREY, rate_int_value[7]);
     sWorld->setIntConfig(CONFIG_SKILL_CHANCE_MINING_STEPS, rate_int_value[8]);
     sWorld->setIntConfig(CONFIG_SKILL_CHANCE_SKINNING_STEPS, rate_int_value[9]);
+    */
 
-    SendInitACK(NODE_INIT_ACK_OK); 
+    SendInitACK(NODE_INIT_ACK_OK);
+
+    //if (sWorld->getIntConfig(CONFIG_CORE_TYPE) == NODE_TYPE_MASTER)
+        //sObjectMgr->HandleLostMailItems();
 }
 
 void PoolSession::Handle_LOGON_SYNC_DATA(WorldPacket &recvPacket)
-{ 
+{
+    uint32 cmd = recvPacket.read<uint32>();
+
+    switch (cmd)
+    {
+        case CL_DEF_GUID_SYNC:
+        {
+            /*
+            uint32 subCommand = recvPacket.read<uint32>();
+
+            switch (subCommand)
+            {
+                case ENTITYID_ITEM:
+                    recvPacket >> sObjectMgr->_hiItemGuid;
+                    break;
+                case ENTITYID_MAIL:
+                    recvPacket >> sObjectMgr->_mailId;
+                    break;
+                case ENTITYID_GROUP:
+                    //recvPacket >> sGroupMgr->NextGroupId;
+                    break;
+                case ENTITYID_CORPSE:
+                    recvPacket >> sObjectMgr->_hiCorpseGuid;
+                    break;
+            }
+            recvPacket >> sObjectMgr->_hiRange;
+            break;*/
+        }
+        case CL_DEF_SHUTDOWN:
+        {
+            uint32 time;
+            recvPacket >> time;
+            sWorld->ShutdownServ(time, 0, SHUTDOWN_EXIT_CODE);
+            break;
+        }
+    }
 }
