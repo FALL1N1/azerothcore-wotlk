@@ -38,18 +38,14 @@ private:
 class NodeSocketConnector : public SocketConnector<NodeSocket>
 {
 public:
-    NodeSocket* OpenNodeConnection(uint32 nodeID)
+    NodeSocket * OpenNewConnection(uint32 nodeID)
     {
-        //sLog->outString("OpenNodeConnection(%u)", nodeID);
-        if (sRoutingHelper->CheckNodeID(nodeID))
-        {
-            //sLog->outString("CheckNodeID(%u)", nodeID);
-            NodeList nodeInfo = sRoutingHelper->GetNodeConnectionData(nodeID);
-            //sLog->outString("CheckNodeID(%u), nodeInfo(%u), nodeInfo(%s)", nodeID, nodeInfo.port, nodeInfo.IP);
-                return SocketConnector<NodeSocket>::OpenConnection(nodeInfo.port, nodeInfo.IP);
-        }
-        
-        return 0;
+        if (!sRoutingHelper->CheckNodeID(nodeID))
+            return false;
+
+        NodeList nodeInfo = sRoutingHelper->GetNodeConnectionData(nodeID);
+
+        return SocketConnector<NodeSocket>::OpenConnection(nodeInfo.port, nodeInfo.IP);
     }
 };
 

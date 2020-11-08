@@ -134,8 +134,6 @@ int Socket::_setup()
     }
 
     _address = remote_addr.get_host_addr();
-
-    return 0;
 }
 
 int Socket::open (void *a)

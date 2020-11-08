@@ -56,12 +56,10 @@ void ClientSessionMgr::ServerClose()
 /*********************************************************/
 bool ClientSessionMgr::HasRecentlyDisconnected(ClientSession* session)
 {
-    return false;
-    /*
     if (!session)
         return false;
 
-    if (uint32 tolerance = sLogon->getIntConfig(CONFIG_INTERVAL_DISCONNECT_TOLERANCE))
+    if (uint32 tolerance = 12000000)
     {
         for (DisconnectMap::iterator i = _disconnects.begin(); i != _disconnects.end();)
         {
@@ -75,7 +73,7 @@ bool ClientSessionMgr::HasRecentlyDisconnected(ClientSession* session)
                 _disconnects.erase(i);
         }
     }
-    return false;*/
+    return false;
  }
 
 void ClientSessionMgr::UpdateMaxSessionCounters()
@@ -344,7 +342,6 @@ void ClientSessionMgr::ShutdownMsg(uint32 m_ShutdownTimer, uint32 m_ShutdownMask
 
 void ClientSessionMgr::HaltMsg(uint32 m_HaltTimer, uint32 m_ShutdownMask, bool show, Player* player)
 {
-    return;
     ///- Display a message every 12 hours, hours, 5 minutes, minute, 5 seconds and finally seconds
     if (show ||
         (m_HaltTimer < 5* MINUTE && (m_HaltTimer % 15) == 0) || // < 5 min; every 15 sec

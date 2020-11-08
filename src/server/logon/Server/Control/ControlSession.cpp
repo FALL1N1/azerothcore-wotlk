@@ -18,19 +18,20 @@ ControlSession::ControlSession(uint32 NodeID, uint8 NodeType) :_nodeId(NodeID), 
     m_Socket = NULL;
     m_Logout = false;
 
-    if (ControlSocket *socket = sControlSocketConnector->OpenNodeConnection(NodeID))
+    if (ControlSocket *socket = sControlSocketConnector->OpenConnection(NodeID, "127.0.0.1"))
     {
         socket->add_reference();
 
         m_Socket = socket;
         SetFlag(CTL_FLAG_NODE_RECONNECT, false);
+        sLog->outString("CONNECTION TO NODE %u SUCCEEDED", NodeID);
     }
     else
     {
+        sLog->outString("CONNECTION TO NODE %u FAILED", NodeID);
         _reconnect_timer = 2000;
         SetFlag(CTL_FLAG_NODE_RECONNECT, true);
     }
-
 }
 
 ControlSession::~ControlSession()
@@ -59,15 +60,19 @@ bool ControlSession::Update(uint32 diff)
     {
         if (_reconnect_timer <= diff)
         {
+            sLog->outString("CONNECTION TO NODE %u FAILED, RECONNECTING IN 2s", _nodeId);
             _reconnect_timer = 2000;
             if (sRoutingHelper->CheckNodeID(_nodeId))
-                if (ControlSocket* socket = sControlSocketConnector->OpenNodeConnection(_nodeId))
+            {
+                if (ControlSocket *socket = sControlSocketConnector->OpenConnection(_nodeId, "127.0.0.1"))
                 {
                     socket->add_reference();
                     m_Socket = socket;
 
                     SetFlag(CTL_FLAG_NODE_RECONNECT, false);
+                    sLog->outString("CONNECTION TO NODE %u SUCCEEDED", _nodeId);
                 }
+            }
         }
         else
             _reconnect_timer -= diff;
@@ -84,6 +89,7 @@ bool ControlSession::Update(uint32 diff)
 
         _reconnect_timer = 2000;
         SetFlag(CTL_FLAG_NODE_RECONNECT, true);
+        sLog->outString("CONNECTION TO NODE %u FAILED, SERVER IS DOWN!", GetNodeId());
     }
 
     return true;
@@ -193,10 +199,7 @@ void ControlSession::Handle_NODE_INIT_ACK(WorldPacket &recvPacket)
     else
         CloseSocket();
 
-    if(_nodeId == 1)
-        sLog->outString("[MasterNode]: ID: %u recieved status 'ONLINE' with code: 0x0%u_BLNZR", _nodeId, ack_code);
-    else
-        sLog->outString("[SlaveNode]: ID: %u recieved status 'ONLINE' with code: 0x0%u_BLNZR", _nodeId, ack_code);
+    sLog->outDebug(LOG_FILTER_NETWORKIO, "Node: %u ACK with %u", _nodeId, ack_code);
 }
 
 void ControlSession::Handle_NODE_SYNC_DATA(WorldPacket &recvPacket)

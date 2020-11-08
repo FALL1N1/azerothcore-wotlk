@@ -39,7 +39,7 @@ private:
 class ControlSocketConnector : public SocketConnector<ControlSocket>
 {
 public:
-    ControlSocket * OpenNodeConnection(uint32 nodeID)
+    ControlSocket * OpenNewConnection(uint32 nodeID)
     {
         NodeList nodeInfo = sRoutingHelper->GetNodeConnectionData(nodeID);
 

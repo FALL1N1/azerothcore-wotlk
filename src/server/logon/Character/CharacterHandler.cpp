@@ -214,21 +214,36 @@ void ClientSession::HandleCharEnum(PreparedQueryResult result)
 }
 
 void ClientSession::HandlePlayerLoginOpcode(WorldPacket & recv_data)
-{ 
-    // send player to char screen if current node is unavailable
-    if (!sRoutingHelper->CheckNodeID(_nodeId) || _nodeId == 0 && m_playerLoading)
+{
+    //Show the CharEnum, when Node offline
+    if (!sRoutingHelper->CheckNodeID(_nodeId) || _nodeId == 0)
     {
-        WorldPacket data(SMSG_CHARACTER_LOGIN_FAILED, 1);
-        data << (uint8)CHAR_LOGIN_DUPLICATE_CHARACTER;
+        WorldPacket data(SMSG_LOGOUT_COMPLETE, 0);
         SendPacket(&data);
-        SendAuthResponse(CHAR_LOGIN_NO_WORLD, false, 0);
+        return;
+    }
+
+    if (m_loginDelay)
+    {
+        if (++m_DoSStrikes > LOGON_DOS_STRIKE_LIMIT)
+        {
+            sLog->outString("Denial of Service Attack by: ", GetAccountId());
+            //sLogon->BanAccountbyId(GetAccountId(), -1, "Denial of Service Attack", "Caroline");
+            //KickPlayer();
+        }
+        else
+        {
+            WorldPacket data(SMSG_LOGOUT_COMPLETE, 0);
+            SendPacket(&data);
+        }
         return;
     }
 
     SetPlayer(NULL);
+
     if (/*PlayerLoading() ||*/ GetPlayer() != NULL)
     {
-        sLog->outError("Player tries to login again, AccountId = %d", GetAccountId());
+        sLog->outError("Player tryes to login again, AccountId = %d", GetAccountId());
         return;
     }
 
@@ -248,8 +263,11 @@ void ClientSession::HandlePlayerLoginOpcode(WorldPacket & recv_data)
     {
         delete holder;                                      // delete all unprocessed queries
         m_playerLoading = false;
+        m_loginDelay = LOGON_LOGIN_DELAY;
         return;
     }
+
+    m_loginDelay = LOGON_LOGIN_DELAY;
 
     _charLoginCallback = CharacterDatabase.DelayQueryHolder((SQLQueryHolder*)holder);
 }
@@ -276,7 +294,7 @@ void ClientSession::HandlePlayerLogin(LoginQueryHolder * holder)
     //Add the Char to our ObjectMgr
     sObjectMgr->Player_Add(pCurrChar);
 
-    sLog->outString("Player %s is logging in world node.", pCurrChar->GetPlayerName().c_str());
+    sLog->outDebug(LOG_FILTER_PLAYER_LOADING, "Player %s is loggin in.", pCurrChar->GetPlayerName().c_str());
     LoadAccountData(holder->GetPreparedResult(PLAYER_LOGIN_QUERY_LOADACCOUNTDATA), PER_CHARACTER_CACHE_MASK);
     SendAccountDataTimes(PER_CHARACTER_CACHE_MASK);
     
@@ -287,10 +305,11 @@ void ClientSession::HandlePlayerLogin(LoginQueryHolder * holder)
 
     PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_CHAR_ONLINE);
     stmt->setUInt32(0, pCurrChar->GetGUIDLow());
-    CharacterDatabase.Execute(stmt); 
+    CharacterDatabase.Execute(stmt);
 
     // Now we are save to connect to our node
     SendPlayerLogin();
+
     m_playerLoading = false;
     delete holder;
 }

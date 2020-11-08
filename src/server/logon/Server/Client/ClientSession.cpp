@@ -547,8 +547,8 @@ bool ClientSession::UpdateMulti(uint32 diff)
                 }
             }
 
-            _reconnect_timer = 5000000;
-       }
+            _reconnect_timer = 2000000;
+        }
     }
 
     UpdateMultiNodeIO(diff);
